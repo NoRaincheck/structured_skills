@@ -5,7 +5,12 @@ from pathlib import Path
 
 from structured_skills.server import create_mcp_server
 from structured_skills.skill_registry import SkillRegistry
-from structured_skills.validator import fix_dependencies, parse_frontmatter, validate
+from structured_skills.validator import (
+    _get_declared_dependencies,
+    fix_dependencies,
+    parse_frontmatter,
+    validate,
+)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -106,13 +111,7 @@ def _get_all_dependencies(skill_dir: Path) -> set[str]:
         try:
             content = skill_md.read_text()
             metadata, _ = parse_frontmatter(content)
-            metadata_dict = metadata.get("metadata", {})
-            raw_deps = metadata_dict.get("dependencies")
-
-            if isinstance(raw_deps, str):
-                all_deps.add(raw_deps)
-            elif isinstance(raw_deps, list):
-                all_deps.update(raw_deps)
+            all_deps.update(_get_declared_dependencies(metadata))
         except ValueError:
             continue
 

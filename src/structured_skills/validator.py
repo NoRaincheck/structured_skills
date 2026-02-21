@@ -13,218 +13,11 @@ from typing import Optional
 import strictyaml
 import yaml
 
+from structured_skills.stdlib import STDLIB_MODULES
+
 MAX_SKILL_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
 MAX_COMPATIBILITY_LENGTH = 500
-
-STDLIB_MODULES = {
-    "_ast",
-    "_builtins",
-    "_collections_abc",
-    "_functools",
-    "_io",
-    "_locale",
-    "_operator",
-    "_signal",
-    "_sre",
-    "_stat",
-    "_string",
-    "_symtable",
-    "_thread",
-    "_tracemalloc",
-    "_warnings",
-    "_weakref",
-    "abc",
-    "argparse",
-    "array",
-    "ast",
-    "base64",
-    "binascii",
-    "bisect",
-    "builtins",
-    "calendar",
-    "cmath",
-    "cmd",
-    "code",
-    "codecs",
-    "codeop",
-    "collections",
-    "colorsys",
-    "compile",
-    "configparser",
-    "contextlib",
-    "contextvars",
-    "copy",
-    "copyreg",
-    "crypt",
-    "csv",
-    "dataclasses",
-    "datetime",
-    "decimal",
-    "difflib",
-    "dis",
-    "doctest",
-    "email",
-    "encoding",
-    "enum",
-    "errno",
-    "faulthandler",
-    "fcntl",
-    "filecmp",
-    "fileinput",
-    "fnmatch",
-    "fractions",
-    "functools",
-    "gc",
-    "getopt",
-    "getpass",
-    "gettext",
-    "glob",
-    "graphlib",
-    "gzip",
-    "hashlib",
-    "heapq",
-    "hmac",
-    "html",
-    "http",
-    "imaplib",
-    "imghdr",
-    "imp",
-    "importlib",
-    "inspect",
-    "io",
-    "ipaddress",
-    "itertools",
-    "json",
-    "keyword",
-    "linecache",
-    "locale",
-    "logging",
-    "lzma",
-    "mailbox",
-    "mailcap",
-    "marshal",
-    "math",
-    "mimetypes",
-    "mmap",
-    "modulefinder",
-    "multiprocessing",
-    "netrc",
-    "nntplib",
-    "ntpath",
-    "numbers",
-    "operator",
-    "optparse",
-    "os",
-    "pathlib",
-    "pickle",
-    "pickletools",
-    "pipes",
-    "pkgutil",
-    "platform",
-    "plistlib",
-    "poplib",
-    "posix",
-    "posixpath",
-    "pprint",
-    "profile",
-    "pstats",
-    "pty",
-    "pwd",
-    "py_compile",
-    "pyclbr",
-    "pydoc",
-    "queue",
-    "quopri",
-    "random",
-    "re",
-    "readline",
-    "reprlib",
-    "resource",
-    "rlcompleter",
-    "runpy",
-    "sched",
-    "secrets",
-    "select",
-    "shelve",
-    "shlex",
-    "shutil",
-    "signal",
-    "site",
-    "smtpd",
-    "smtplib",
-    "sndhdr",
-    "socket",
-    "socketserver",
-    "sqlite3",
-    "sre",
-    "sre_compile",
-    "sre_constants",
-    "sre_parse",
-    "ssl",
-    "stat",
-    "statistics",
-    "string",
-    "stringprep",
-    "struct",
-    "subprocess",
-    "sunau",
-    "symbol",
-    "sys",
-    "sysconfig",
-    "tabnanny",
-    "tarfile",
-    "telnetlib",
-    "tempfile",
-    "termios",
-    "test",
-    "textwrap",
-    "threading",
-    "time",
-    "timeit",
-    "token",
-    "tokenize",
-    "trace",
-    "traceback",
-    "tracemalloc",
-    "tty",
-    "types",
-    "typing",
-    "unicodedata",
-    "unittest",
-    "urllib",
-    "urllib.parse",
-    "urllib.request",
-    "urllib.response",
-    "urllib.error",
-    "urllib.parse",
-    "urllib.robotparser",
-    "usertypes",
-    "uu",
-    "uuid",
-    "venv",
-    "warnings",
-    "wave",
-    "weakref",
-    "webbrowser",
-    "xml",
-    "xml.dom",
-    "xml.dom.minidom",
-    "xml.dom.pulldom",
-    "xml.etree",
-    "xml.etree.ElementTree",
-    "xml.parsers",
-    "xml.sax",
-    "xml.sax.handler",
-    "xml.sax.saxutils",
-    "xml.sax.xmlreader",
-    "xmlrpc",
-    "xmlrpc.client",
-    "xmlrpc.server",
-    "zipfile",
-    "zipimport",
-    "zlib",
-}
 
 # Allowed frontmatter fields per Agent Skills Spec
 ALLOWED_FIELDS = {
@@ -428,6 +221,24 @@ def _validate_compatibility(compatibility: str) -> list[str]:
     return errors
 
 
+def _get_declared_dependencies(metadata: dict) -> set[str]:
+    """Extract declared dependencies from metadata.
+
+    Args:
+        metadata: Parsed YAML frontmatter dictionary
+
+    Returns:
+        Set of declared dependency names
+    """
+    metadata_dict = metadata.get("metadata", {})
+    raw_deps = metadata_dict.get("dependencies")
+    if isinstance(raw_deps, str):
+        return {raw_deps}
+    elif isinstance(raw_deps, list):
+        return set(raw_deps)
+    return set()
+
+
 def _validate_dependencies(metadata: dict, skill_dir: Path) -> list[str]:
     """Validate that non-stdlib imports are declared in metadata.dependencies.
 
@@ -455,16 +266,7 @@ def _validate_dependencies(metadata: dict, skill_dir: Path) -> list[str]:
     if not all_imports:
         return errors
 
-    metadata_dict = metadata.get("metadata", {})
-    raw_deps = metadata_dict.get("dependencies")
-    if isinstance(raw_deps, str):
-        declared_deps = [raw_deps]
-    elif isinstance(raw_deps, list):
-        declared_deps = list(raw_deps)
-    else:
-        declared_deps = []
-
-    declared_set = set(declared_deps)
+    declared_set = _get_declared_dependencies(metadata)
 
     missing = all_imports - declared_set
     if missing:
@@ -557,15 +359,8 @@ def fix_dependencies(skill_dir: Path) -> list[str]:
     if "metadata" not in metadata:
         metadata["metadata"] = {}
 
-    raw_deps = metadata["metadata"].get("dependencies")
-    if isinstance(raw_deps, str):
-        existing_deps = [raw_deps]
-    elif isinstance(raw_deps, list):
-        existing_deps = list(raw_deps)
-    else:
-        existing_deps = []
-
-    existing_set = set(existing_deps)
+    existing_set = _get_declared_dependencies(metadata)
+    existing_deps = list(existing_set)
 
     new_deps = all_imports - existing_set
     if new_deps:
