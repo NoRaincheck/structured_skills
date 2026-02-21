@@ -16,6 +16,12 @@ def create_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser("run", help="Launch MCP server for skills")
     run_parser.add_argument("skill_dir", type=Path, help="Path to skill root directory")
+    run_parser.add_argument(
+        "--exclude-skills",
+        nargs="*",
+        default=[],
+        help="List of skill names to exclude",
+    )
 
     cli_parser = subparsers.add_parser("cli", help="CLI tools for skill management")
     cli_subparsers = cli_parser.add_subparsers(dest="cli_command", help="CLI subcommands")
@@ -122,7 +128,7 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "run":
-        mcp = create_mcp_server(args.skill_dir)
+        mcp = create_mcp_server(args.skill_dir, exclude_skills=args.exclude_skills)
         mcp.run()
 
     elif args.command == "cli":

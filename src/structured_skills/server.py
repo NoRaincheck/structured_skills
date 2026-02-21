@@ -5,9 +5,11 @@ from mcp.server.fastmcp import FastMCP
 from structured_skills.skill_registry import SkillRegistry
 
 
-def create_mcp_server(skill_root_dir: Path, server_name: str = "structured_skills") -> FastMCP:
+def create_mcp_server(
+    skill_root_dir: Path, server_name: str = "structured_skills", exclude_skills: list[str] = []
+) -> FastMCP:
     mcp = FastMCP(server_name)
-    registry = SkillRegistry(skill_root_dir)
+    registry = SkillRegistry(skill_root_dir, exclude_skills=exclude_skills)
 
     skill_names = registry.get_skill_names()
     skills_info = f"\n\nAvailable skills: {', '.join(skill_names)}"
