@@ -21,7 +21,7 @@ jobs:
         run: uv sync --locked --all-extras --dev
 
       - name: Run tests
-        run: uv run pytest --cov=src --cov-report=term-missing
+        run: uv run pytest --cov=src --cov-report=term-missing > $GITHUB_STEP_SUMMARY
       
       - name: Run ruff format check
         run: uv run ruff format --check .
@@ -31,3 +31,6 @@ jobs:
 
       - name: Run ty check
         run: uv run ty check . --ignore unresolved-import
+
+      - name: Success!
+        run: echo "Success! All linting and checks pass" >> $GITHUB_STEP_SUMMARY
