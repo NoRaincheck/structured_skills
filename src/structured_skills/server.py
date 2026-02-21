@@ -7,10 +7,15 @@ from structured_skills.tools import create_skill_tools
 
 
 def create_mcp_server(
-    skill_root_dir: Path, server_name: str = "structured_skills", exclude_skills: list[str] = []
+    skill_root_dir: Path,
+    server_name: str = "structured_skills",
+    exclude_skills: list[str] = [],
+    include_skills: list[str] | None = None,
 ) -> FastMCP:
     mcp = FastMCP(server_name)
-    registry = SkillRegistry(skill_root_dir, exclude_skills=exclude_skills)
+    registry = SkillRegistry(
+        skill_root_dir, exclude_skills=exclude_skills, include_skills=include_skills
+    )
     tools = create_skill_tools(registry)
 
     list_skills_func, list_skills_desc = tools["list_skills"]
