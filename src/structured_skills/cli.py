@@ -5,7 +5,7 @@ from pathlib import Path
 
 from structured_skills.server import create_mcp_server
 from structured_skills.skill_registry import SkillRegistry
-from structured_skills.validator import fix_dependencies, validate
+from structured_skills.validator import fix_dependencies, parse_frontmatter, validate
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -91,6 +91,45 @@ def handle_cli(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def _get_all_dependencies(skill_dir: Path) -> set[str]:
+    """Extract all unique dependencies from skills in a directory."""
+    all_deps: set[str] = set()
+
+    for sub_dir in skill_dir.iterdir():
+        if not sub_dir.is_dir() or sub_dir.name.startswith("."):
+            continue
+
+        skill_md = sub_dir / "SKILL.md"
+        if not skill_md.exists():
+            continue
+
+        try:
+            content = skill_md.read_text()
+            metadata, _ = parse_frontmatter(content)
+            metadata_dict = metadata.get("metadata", {})
+            raw_deps = metadata_dict.get("dependencies")
+
+            if isinstance(raw_deps, str):
+                all_deps.add(raw_deps)
+            elif isinstance(raw_deps, list):
+                all_deps.update(raw_deps)
+        except ValueError:
+            continue
+
+    return all_deps
+
+
+def _show_deps_warning(skill_dir: Path) -> None:
+    """Show warning about dependencies if any skills have them."""
+    deps = _get_all_dependencies(skill_dir)
+    if not deps:
+        return
+
+    deps_str = " ".join(f"--with {dep}" for dep in sorted(deps))
+    print("\nWarning: Skills have dependencies. To run the server with dependencies, use:")
+    print(f"  uvx structured_skills {deps_str} -- run {skill_dir}")
+
+
 def handle_check(args: argparse.Namespace) -> None:
     skill_dir = args.skill_dir
 
@@ -117,6 +156,7 @@ def handle_check(args: argparse.Namespace) -> None:
             sys.exit(1)
     else:
         print("All skills validated successfully!")
+        _show_deps_warning(skill_dir)
 
     if args.fix:
         print("\nFixing skills...")
@@ -171,6 +211,7 @@ def handle_check(args: argparse.Namespace) -> None:
             sys.exit(1)
         else:
             print("\nAll skills validated successfully after fix!")
+            _show_deps_warning(skill_dir)
     else:
         sys.exit(1)
 
