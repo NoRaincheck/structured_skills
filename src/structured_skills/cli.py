@@ -165,6 +165,17 @@ def handle_check(args: argparse.Namespace) -> None:
             if not sub_dir.is_dir() or sub_dir.name.startswith("."):
                 continue
 
+            skill_md = sub_dir / "SKILL.md"
+            if skill_md.exists():
+                try:
+                    content = skill_md.read_text()
+                    metadata, _ = parse_frontmatter(content)
+                    if metadata.get("metadata", {}).get("dependencies") is not None:
+                        print(f"  {sub_dir.name}: dependencies already defined, skipping")
+                        continue
+                except ValueError:
+                    pass
+
             fixed_deps = fix_dependencies(sub_dir)
             if fixed_deps:
                 print(f"  {sub_dir.name}: added dependencies: {', '.join(fixed_deps)}")
