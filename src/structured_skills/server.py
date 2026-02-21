@@ -3,6 +3,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from structured_skills.skill_registry import SkillRegistry
+from structured_skills.tools import create_skill_tools
 
 
 def create_mcp_server(
@@ -10,35 +11,28 @@ def create_mcp_server(
 ) -> FastMCP:
     mcp = FastMCP(server_name)
     registry = SkillRegistry(skill_root_dir, exclude_skills=exclude_skills)
+    tools = create_skill_tools(registry)
 
-    skill_names = registry.get_skill_names()
-    skills_info = f"\n\nAvailable skills: {', '.join(skill_names)}"
+    list_skills_func, list_skills_desc = tools["list_skills"]
+    load_skill_func, load_skill_desc = tools["load_skill"]
+    read_resource_func, read_resource_desc = tools["read_skill_resource"]
+    run_skill_func, run_skill_desc = tools["run_skill"]
 
-    @mcp.tool(
-        description=f"List all available skills. Returns a mapping of skill names to their descriptions.{skills_info}"
-    )
+    @mcp.tool(description=list_skills_desc)
     def list_skills() -> dict[str, str]:
-        """List all available skills. Returns a mapping of skill names to their descriptions."""
-        return registry.list_skills()
+        return list_skills_func()
 
-    @mcp.tool(description=f"Load full instructions for a specific skill by name.{skills_info}")
+    @mcp.tool(description=load_skill_desc)
     def load_skill(skill_name: str) -> str:
-        """Load full instructions for a specific skill by name."""
-        return registry.load_skill(skill_name)
+        return load_skill_func(skill_name)
 
-    @mcp.tool(
-        description=f"Load full resource file, script, or function for a specific skill.{skills_info}"
-    )
+    @mcp.tool(description=read_resource_desc)
     def read_skill_resource(skill_name: str, resource_name: str, args: dict | None = None) -> str:
-        """Load full resource file, script, or function for a specific skill."""
-        result = registry.read_skill_resource(skill_name, resource_name, args)
+        result = read_resource_func(skill_name, resource_name, args)
         return str(result) if not isinstance(result, str) else result
 
-    @mcp.tool(
-        description=f"Execute skill scripts or functions with optional arguments.{skills_info}"
-    )
+    @mcp.tool(description=run_skill_desc)
     def run_skill(skill_name: str, function_name: str, args: dict | None = None) -> str:
-        """Execute skill scripts or functions with optional arguments."""
-        return registry.run_skill(skill_name, function_name, args)
+        return run_skill_func(skill_name, function_name, args)
 
     return mcp

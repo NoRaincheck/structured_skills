@@ -3,7 +3,7 @@ import subprocess
 from dataclasses import dataclass
 from difflib import get_close_matches
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
 
 from structured_skills.cst.utils import execute_script as execute_script_impl
 from structured_skills.cst.utils import extract_function_info
@@ -41,6 +41,13 @@ class SkillRegistry:
         self.skill_root_dir = Path(skill_root_dir)
         self._skills: list[Skill] | None = None
         self._exclude_skills: list[str] = exclude_skills
+
+    def _raise_skill_not_found(self, context: str, skill_name: str) -> NoReturn:
+        similar = self.find_similar_skill_names(skill_name)
+        msg = f"[{context}] Could not find: {skill_name}"
+        if similar:
+            msg += f" Did you mean {similar}?"
+        raise Exception(msg)
 
     def _load_skills(self) -> list[Skill]:
         skills = []
@@ -87,23 +94,16 @@ class SkillRegistry:
 
     def load_skill(self, skill_name: str) -> str:
         skill = self.get_skill_by_name(skill_name)
-        if skill:
-            return skill.content
-
-        similar = self.find_similar_skill_names(skill_name)
-        close_matches_info = f" Did you mean {similar}?" if similar else ""
-        raise Exception(f"[load_skill] Could not find: {skill_name}.{close_matches_info}")
+        if skill is None:
+            self._raise_skill_not_found("load_skill", skill_name)
+        return skill.content
 
     def read_skill_resource(
         self, skill_name: str, resource_name: str, args: dict[str, Any] | None = None
     ) -> str | dict[str, str]:
         skill = self.get_skill_by_name(skill_name)
-        if not skill:
-            similar = self.find_similar_skill_names(skill_name)
-            close_matches_info = f" Did you mean {similar}?" if similar else ""
-            raise Exception(
-                f"[read_skill_resource] Could not find: {skill_name}.{close_matches_info}"
-            )
+        if skill is None:
+            self._raise_skill_not_found("read_skill_resource", skill_name)
 
         target_skill_dir = skill.directory
 
@@ -149,10 +149,8 @@ class SkillRegistry:
         args: dict[str, Any] | None = None,
     ) -> str:
         skill = self.get_skill_by_name(skill_name)
-        if not skill:
-            similar = self.find_similar_skill_names(skill_name)
-            close_matches_info = f" Did you mean {similar}?" if similar else ""
-            raise Exception(f"[run_skill] Could not find: {skill_name}.{close_matches_info}")
+        if skill is None:
+            self._raise_skill_not_found("run_skill", skill_name)
 
         target_skill_dir = skill.directory
 
@@ -181,46 +179,9 @@ def get_tool(
     registry: SkillRegistry,
     tool_name: Literal["list_skills", "load_skill", "read_skill_resource", "run_skill"],
 ):
-    def add_docstring(description: str):
-        def inner(obj):
-            obj.__doc__ = description
-            return obj
+    from structured_skills.tools import create_skill_tools
 
-        return inner
-
-    skill_names = registry.get_skill_names()
-    skills_info = f"\n\nAvailable skills: {', '.join(skill_names)}"
-
-    @add_docstring(
-        f"List all available skills. Returns a mapping of skill names to their descriptions.{skills_info}"
-    )
-    def list_skills() -> dict[str, str]:
-        return registry.list_skills()
-
-    @add_docstring(f"Load full instructions for a specific skill by name.{skills_info}")
-    def load_skill(skill_name: str) -> str:
-        return registry.load_skill(skill_name)
-
-    @add_docstring(
-        f"Load full resource file, script, or function for a specific skill.{skills_info}"
-    )
-    def read_skill_resource(
-        skill_name: str, resource_name: str, args: dict[str, Any] | None = None
-    ) -> str | dict[str, str]:
-        return registry.read_skill_resource(skill_name, resource_name, args)
-
-    @add_docstring(f"Execute skill scripts or functions with optional arguments.{skills_info}")
-    def run_skill(
-        skill_name: str,
-        function_or_script_name: str,
-        args: dict[str, Any] | None = None,
-    ) -> str:
-        return registry.run_skill(skill_name, function_or_script_name, args)
-
-    tools = {
-        "list_skills": list_skills,
-        "load_skill": load_skill,
-        "read_skill_resource": read_skill_resource,
-        "run_skill": run_skill,
-    }
-    return tools[tool_name]
+    tools = create_skill_tools(registry)
+    func, description = tools[tool_name]
+    func.__doc__ = description
+    return func

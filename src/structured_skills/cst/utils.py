@@ -24,6 +24,14 @@ class FunctionNotFoundError(Exception):
     pass
 
 
+def _extract_docstring_from_simple_string(string_node: cst.SimpleString) -> str | None:
+    """Extract docstring content from a SimpleString node."""
+    raw_value = string_node.value
+    if raw_value.startswith('"""') or raw_value.startswith("'''"):
+        return raw_value[3:-3]
+    return raw_value[1:-1]
+
+
 def extract_function_info(source: str, function_name: str) -> FunctionInfo:
     module = cst.parse_module(source)
 
@@ -101,19 +109,9 @@ def extract_function_info(source: str, function_name: str) -> FunctionInfo:
         if isinstance(first_stmt, cst.SimpleStatementLine):
             body_stmt = first_stmt.body[0] if first_stmt.body else None
             if isinstance(body_stmt, cst.Expr) and isinstance(body_stmt.value, cst.SimpleString):
-                docstring = (
-                    body_stmt.value.value[3:-3]
-                    if body_stmt.value.value.startswith('"""')
-                    or body_stmt.value.value.startswith("'''")
-                    else body_stmt.value.value[1:-1]
-                )
+                docstring = _extract_docstring_from_simple_string(body_stmt.value)
         elif isinstance(first_stmt, cst.Expr) and isinstance(first_stmt.value, cst.SimpleString):
-            docstring = (
-                first_stmt.value.value[3:-3]
-                if first_stmt.value.value.startswith('"""')
-                or first_stmt.value.value.startswith("'''")
-                else first_stmt.value.value[1:-1]
-            )
+            docstring = _extract_docstring_from_simple_string(first_stmt.value)
 
     return FunctionInfo(
         name=func.name.value,

@@ -12,6 +12,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+all = ["smolagents>=1.0.0", "ruff>=0.15.2"]
+cli = ["ruff>=0.15.2"]
 smolagents = ["smolagents>=1.0.0"]
 
 [project.scripts]
