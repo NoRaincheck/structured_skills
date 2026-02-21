@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  uv-test:
+    name: python
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run tests
+        id: tests
+        run: |
+          uv run pytest --cov=src --cov-report=term-missing 2>&1 | tee test_output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Run ruff format check
+        id: ruff-format
+        run: uv run ruff format --check . 2>&1 | tee format_output.txt
+        continue-on-error: true
+
+      - name: Run ruff check
+        id: ruff-check
+        run: uv run ruff check . 2>&1 | tee lint_output.txt
+        continue-on-error: true
+
+      - name: Run ty check
+        id: ty-check
+        run: uv run ty check . --ignore unresolved-import 2>&1 | tee typecheck_output.txt
+        continue-on-error: true
+
+      - name: Build comment
+        id: build-comment
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "comment<<EOF" >> $GITHUB_OUTPUT
+          echo "## CI Results" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          
+          # Test results
+          if [ "${{ steps.tests.outputs.exit_code }}" == "0" ]; then
+            echo "✅ **Tests**: Passed" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **Tests**: Failed" >> $GITHUB_OUTPUT
+          fi
+          
+          # Ruff format
+          if [ "${{ steps.ruff-format.outcome }}" == "success" ]; then
+            echo "✅ **Ruff Format**: Passed" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **Ruff Format**: Failed" >> $GITHUB_OUTPUT
+            echo '```' >> $GITHUB_OUTPUT
+            cat format_output.txt >> $GITHUB_OUTPUT
+            echo '```' >> $GITHUB_OUTPUT
+          fi
+          
+          # Ruff check
+          if [ "${{ steps.ruff-check.outcome }}" == "success" ]; then
+            echo "✅ **Ruff Lint**: Passed" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **Ruff Lint**: Failed" >> $GITHUB_OUTPUT
+            echo '```' >> $GITHUB_OUTPUT
+            cat lint_output.txt >> $GITHUB_OUTPUT
+            echo '```' >> $GITHUB_OUTPUT
+          fi
+          
+          # Type check
+          if [ "${{ steps.ty-check.outcome }}" == "success" ]; then
+            echo "✅ **Type Check**: Passed" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **Type Check**: Failed" >> $GITHUB_OUTPUT
+            echo '```' >> $GITHUB_OUTPUT
+            cat typecheck_output.txt >> $GITHUB_OUTPUT
+            echo '```' >> $GITHUB_OUTPUT
+          fi
+          
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = `${{ steps.build-comment.outputs.comment }}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+      - name: Check overall status
+        run: |
+          if [ "${{ steps.tests.outputs.exit_code }}" != "0" ] || \
+             [ "${{ steps.ruff-format.outcome }}" != "success" ] || \
+             [ "${{ steps.ruff-check.outcome }}" != "success" ] || \
+             [ "${{ steps.ty-check.outcome }}" != "success" ]; then
+            echo "One or more checks failed"
+            exit 1
+          fi
+          echo "Success! All linting and checks pass" >> $GITHUB_STEP_SUMMARY
