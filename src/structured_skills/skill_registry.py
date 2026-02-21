@@ -37,10 +37,23 @@ class Skill:
 
 
 class SkillRegistry:
-    def __init__(self, skill_root_dir: Path, exclude_skills: list[str] = []):
+    def __init__(
+        self,
+        skill_root_dir: Path,
+        exclude_skills: list[str] = [],
+        include_skills: list[str] | None = None,
+    ):
         self.skill_root_dir = Path(skill_root_dir)
         self._skills: list[Skill] | None = None
         self._exclude_skills: list[str] = exclude_skills
+        self._include_skills: list[str] | None = include_skills
+
+    def _raise_skill_not_found(self, context: str, skill_name: str) -> NoReturn:
+        similar = self.find_similar_skill_names(skill_name)
+        msg = f"[{context}] Could not find: {skill_name}"
+        if similar:
+            msg += f" Did you mean {similar}?"
+        raise Exception(msg)
 
     def _raise_skill_not_found(self, context: str, skill_name: str) -> NoReturn:
         similar = self.find_similar_skill_names(skill_name)
@@ -57,11 +70,18 @@ class SkillRegistry:
                 if skill_md:
                     content = skill_md.read_text()
                     metadata, body = parse_frontmatter(content)
-                    if metadata["name"] in self._exclude_skills:
+                    skill_name = metadata["name"]
+
+                    # Apply include/exclude filters
+                    if self._include_skills is not None:
+                        if skill_name not in self._include_skills:
+                            continue
+                    elif skill_name in self._exclude_skills:
                         continue
+
                     skills.append(
                         Skill(
-                            name=metadata["name"],
+                            name=skill_name,
                             description=metadata["description"],
                             directory=skill_dir,
                             content=body,
