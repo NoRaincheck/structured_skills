@@ -138,9 +138,7 @@ def _validate_name(name: str, skill_dir: Optional[Path] = None) -> list[str]:
     if skill_dir is not None:
         dir_name = unicodedata.normalize("NFKC", skill_dir.name)
         if dir_name != name:
-            errors.append(
-                f"Directory name '{skill_dir.name}' must match skill name '{name}'"
-            )
+            errors.append(f"Directory name '{skill_dir.name}' must match skill name '{name}'")
 
     return errors
 

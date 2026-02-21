@@ -1,5 +1,3 @@
-import pytest
-
 from structured_skills.skill_registry import SkillRegistry
 from structured_skills.smolagents import create_smolagents_tools
 
