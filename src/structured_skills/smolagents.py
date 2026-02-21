@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from structured_skills.skill_registry import SkillRegistry
 
 if TYPE_CHECKING:
-    from smolagents import Tool
+    from smolagents import Tool  # type: ignore[unresolved-import]
 
 
 def create_smolagents_tools(
@@ -20,7 +20,7 @@ def create_smolagents_tools(
     Returns:
         List of smolagents Tool instances
     """
-    from smolagents import Tool
+    from smolagents import Tool  # type: ignore[unresolved-import]
 
     tool_names = tools or [
         "list_skills",

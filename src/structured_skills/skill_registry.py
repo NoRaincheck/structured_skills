@@ -73,9 +73,8 @@ class SkillRegistry:
 
     @property
     def skills(self) -> list[Skill]:
-        if self._skills is None:
-            self._skills = self._load_skills()
-        return self._skills
+        # we intentionally reload skills, since some skills dynamically update SKILL.md
+        return self._load_skills()
 
     def get_skill_by_name(self, name: str) -> Skill | None:
         for skill in self.skills:
