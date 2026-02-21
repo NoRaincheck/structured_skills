@@ -1979,6 +1979,13 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+all = [
+    { name = "ruff" },
+    { name = "smolagents" },
+]
+cli = [
+    { name = "ruff" },
+]
 smolagents = [
     { name = "smolagents" },
 ]
@@ -1999,10 +2006,13 @@ smolagents = [
 requires-dist = [
     { name = "fastmcp", specifier = ">=3.0.0" },
     { name = "libcst", specifier = ">=1.8.6" },
+    { name = "ruff", marker = "extra == 'all'", specifier = ">=0.15.2" },
+    { name = "ruff", marker = "extra == 'cli'", specifier = ">=0.15.2" },
+    { name = "smolagents", marker = "extra == 'all'", specifier = ">=1.0.0" },
     { name = "smolagents", marker = "extra == 'smolagents'", specifier = ">=1.0.0" },
     { name = "strictyaml", specifier = ">=1.7.3" },
 ]
-provides-extras = ["smolagents"]
+provides-extras = ["all", "cli", "smolagents"]
 
 [package.metadata.requires-dev]
 dev = [

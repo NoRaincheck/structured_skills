@@ -1,10 +1,11 @@
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
 from structured_skills.server import create_mcp_server
 from structured_skills.skill_registry import SkillRegistry
-from structured_skills.validator import validate
+from structured_skills.validator import fix_dependencies, validate
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -100,7 +101,7 @@ def handle_check(args: argparse.Namespace) -> None:
     all_errors: list[tuple[Path, list[str]]] = []
 
     for sub_dir in skill_dir.iterdir():
-        if sub_dir.is_dir():
+        if sub_dir.is_dir() and not sub_dir.name.startswith("."):
             errors = validate(sub_dir)
             if errors:
                 all_errors.append((sub_dir, errors))
@@ -111,12 +112,67 @@ def handle_check(args: argparse.Namespace) -> None:
             print(f"{dir_path}:")
             for error in errors:
                 print(f"  - {error}")
-        sys.exit(1)
+
+        if not args.fix:
+            sys.exit(1)
     else:
         print("All skills validated successfully!")
 
     if args.fix:
-        print("\nNote: Auto-fix is not yet implemented.")
+        print("\nFixing skills...")
+        fixed_count = 0
+
+        for sub_dir in skill_dir.iterdir():
+            if not sub_dir.is_dir() or sub_dir.name.startswith("."):
+                continue
+
+            fixed_deps = fix_dependencies(sub_dir)
+            if fixed_deps:
+                print(f"  {sub_dir.name}: added dependencies: {', '.join(fixed_deps)}")
+                fixed_count += 1
+
+        if fixed_count == 0:
+            print("  No dependencies to fix.")
+
+        print("\nRunning ruff...")
+        result_check = subprocess.run(
+            ["uv", "run", "ruff", "check", ".", "--fix"],
+            cwd=skill_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result_check.stdout:
+            print(f"  ruff check output:\n{result_check.stdout}")
+        if result_check.stderr:
+            print(f"  ruff check errors:\n{result_check.stderr}")
+
+        result_format = subprocess.run(
+            ["uv", "run", "ruff", "format", "."],
+            cwd=skill_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result_format.stdout:
+            print(f"  ruff format output:\n{result_format.stdout}")
+
+        all_errors_after: list[tuple[Path, list[str]]] = []
+        for sub_dir in skill_dir.iterdir():
+            if sub_dir.is_dir() and not sub_dir.name.startswith("."):
+                errors = validate(sub_dir)
+                if errors:
+                    all_errors_after.append((sub_dir, errors))
+
+        if all_errors_after:
+            print("\nValidation errors still present after fix:\n")
+            for dir_path, errors in all_errors_after:
+                print(f"{dir_path}:")
+                for error in errors:
+                    print(f"  - {error}")
+            sys.exit(1)
+        else:
+            print("\nAll skills validated successfully after fix!")
+    else:
+        sys.exit(1)
 
 
 def main() -> None:
