@@ -100,18 +100,14 @@ def extract_function_info(source: str, function_name: str) -> FunctionInfo:
         first_stmt = func.body.body[0]
         if isinstance(first_stmt, cst.SimpleStatementLine):
             body_stmt = first_stmt.body[0] if first_stmt.body else None
-            if isinstance(body_stmt, cst.Expr) and isinstance(
-                body_stmt.value, cst.SimpleString
-            ):
+            if isinstance(body_stmt, cst.Expr) and isinstance(body_stmt.value, cst.SimpleString):
                 docstring = (
                     body_stmt.value.value[3:-3]
                     if body_stmt.value.value.startswith('"""')
                     or body_stmt.value.value.startswith("'''")
                     else body_stmt.value.value[1:-1]
                 )
-        elif isinstance(first_stmt, cst.Expr) and isinstance(
-            first_stmt.value, cst.SimpleString
-        ):
+        elif isinstance(first_stmt, cst.Expr) and isinstance(first_stmt.value, cst.SimpleString):
             docstring = (
                 first_stmt.value.value[3:-3]
                 if first_stmt.value.value.startswith('"""')
@@ -169,9 +165,7 @@ def update_code(source: str, new_call: str) -> str:
 
 
 def execute_script(content, function_name, args):
-    output = update_code(
-        content, f"args={str(args)};{SECRET_VARIABLE} = {function_name}(**args)"
-    )
+    output = update_code(content, f"args={str(args)};{SECRET_VARIABLE} = {function_name}(**args)")
     context: dict = {"__builtins__": __builtins__}
     exec(output, context, context)
     return context[SECRET_VARIABLE]

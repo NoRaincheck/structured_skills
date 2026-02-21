@@ -1,4 +1,5 @@
 import pytest
+
 from structured_skills.cst.utils import (
     FunctionInfo,
     FunctionNotFoundError,

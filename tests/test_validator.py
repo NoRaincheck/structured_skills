@@ -1,4 +1,5 @@
 import pytest
+
 from structured_skills.validator import (
     MAX_DESCRIPTION_LENGTH,
     MAX_SKILL_NAME_LENGTH,

@@ -1,4 +1,5 @@
 import pytest
+
 from structured_skills.skill_registry import SkillRegistry, get_tool
 
 
