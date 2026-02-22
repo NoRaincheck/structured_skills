@@ -2,7 +2,8 @@
 name: tasks
 description: Recurring task management with best-effort execution
 metadata:
-  dependencies: ["platformdirs"]
+  dependencies: 
+    - platformdirs
 ---
 
 # Tasks
