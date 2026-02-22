@@ -48,5 +48,3 @@ With YAML frontmatter containing:
 - completed: Completion timestamp
 - recurrence: Recurrence pattern (if recurring)
 - next_trigger: Next scheduled run (if recurring)
-
-## Tasks

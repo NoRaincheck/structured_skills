@@ -1,5 +1,5 @@
 from structured_skills.cli import main
-from structured_skills.skill_registry import Skill, SkillRegistry, get_tool
+from structured_skills.skill_registry import Skill, SkillContext, SkillRegistry, get_tool
 from structured_skills.validator import (
     extract_imports,
     find_skill_md,
@@ -12,6 +12,7 @@ __all__ = [
     "main",
     "SkillRegistry",
     "Skill",
+    "SkillContext",
     "get_tool",
     "validate",
     "find_skill_md",

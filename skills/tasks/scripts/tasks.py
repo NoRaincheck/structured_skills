@@ -5,16 +5,50 @@ tasks.py - Recurring task management with best-effort execution
 import hashlib
 import os
 import re
+import shutil
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-SKILL_ROOT_DIR = Path(__file__).parent.parent
-TASKS_TXT = SKILL_ROOT_DIR.joinpath("tasks.txt")
-OUTPUT_DIR = SKILL_ROOT_DIR.joinpath("output")
-SKILL_MD = SKILL_ROOT_DIR.joinpath("SKILL.md")
+import platformdirs
+
 SKILL_MD_TASKS = "## Tasks"
 MIN_RECURRENCE_MINUTES = 30
+SKILLNAME = "tasks"
+
+
+def _get_data_dir() -> Path:
+    """Get the data directory using platformdirs, or skill root if not available."""
+    data_dir = Path(platformdirs.user_data_dir(appname=SKILLNAME))
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
+def _get_tasks_txt() -> Path:
+    """Get the tasks.txt path."""
+    file = _get_data_dir() / "tasks.txt"
+    file.touch(exist_ok=True)
+    return file
+
+
+def _get_output_dir() -> Path:
+    """Get the output directory path."""
+    output_dir = _get_data_dir() / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+def _get_skill_md() -> Path:
+    """Get the SKILL.md path."""
+    file = _get_data_dir() / "SKILL.md"
+    file.touch(exist_ok=True)
+    return file
+
+
+def _ensure_data_dir() -> None:
+    """Ensure the data directory exists."""
+    data_dir = _get_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _iso_date() -> str:
@@ -107,10 +141,10 @@ def _calculate_next_trigger(recurrence: str, from_time: datetime | None = None) 
 
 
 def _load_tasks() -> list[dict]:
-    if not TASKS_TXT.exists():
+    if not _get_tasks_txt().exists():
         return []
     tasks = []
-    for line in TASKS_TXT.read_text().split("\n"):
+    for line in _get_tasks_txt().read_text().split("\n"):
         task = _parse_task_line(line)
         if task:
             tasks.append(task)
@@ -118,21 +152,15 @@ def _load_tasks() -> list[dict]:
 
 
 def _save_tasks(tasks: list[dict]) -> None:
+    _ensure_data_dir()
     lines = [_format_task_line(t) for t in tasks]
-    TASKS_TXT.write_text("\n".join(lines) + "\n")
+    _get_tasks_txt().write_text("\n".join(lines) + "\n")
 
 
 def _update_skill_md() -> None:
-    if not SKILL_MD.exists():
-        return
-    content = SKILL_MD.read_text()
-    parts = content.split(SKILL_MD_TASKS)
-    if len(parts) < 2:
-        return
-    base = parts[0].strip()
     tasks_content = "\n".join([_format_task_line(t) for t in _load_tasks()])
-    updated = f"{base}\n\n{SKILL_MD_TASKS}\n\n{tasks_content}\n"
-    SKILL_MD.write_text(updated)
+    updated = f"{SKILL_MD_TASKS}\n\n{tasks_content}\n"
+    _get_skill_md().write_text(updated)
 
 
 def create_task(
@@ -188,7 +216,7 @@ def complete_task(refno: str, output: str) -> str:
     if not task:
         raise ValueError(f"Task not found: {refno}")
     completed_time = _iso_date()
-    output_dir = OUTPUT_DIR / refno
+    output_dir = _get_output_dir() / refno
     output_dir.mkdir(parents=True, exist_ok=True)
     safe_time = completed_time.replace(":", "-").replace("+", "Z")
     hash_val = hashlib.sha256(output.encode()).hexdigest()[:4]
@@ -249,12 +277,12 @@ def update_task(refno: str, description: str | None = None, recurrence: str | No
 
 
 def reset():
-    import shutil
 
-    TASKS_TXT.write_text("")
-    if OUTPUT_DIR.exists():
-        shutil.rmtree(OUTPUT_DIR)
-    _update_skill_md()
+    _ensure_data_dir()
+    _get_tasks_txt().write_text("")
+    if _get_output_dir().exists():
+        shutil.rmtree(_get_output_dir())
+    _get_skill_md().write_text("")
 
 
 if __name__ == "__main__":

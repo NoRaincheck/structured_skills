@@ -41,6 +41,3 @@ When history reaches 150 items a message is displayed to consolidate.
 When the limits are reached, items are removed from memory/history based on last-in, first-out. 
 
 To consolidate ensure you use `view_memory` or `view_history` to examine the `hash_info` first. Then follow the structure with `[{group}]` to consolidate memories and history.
-
-## Memories
-

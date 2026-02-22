@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from structured_skills.server import create_mcp_server
-from structured_skills.skill_registry import SkillRegistry
+from structured_skills.skill_registry import SkillContext, SkillRegistry
 from structured_skills.validator import (
     _get_declared_dependencies,
     fix_dependencies,
@@ -22,6 +22,12 @@ def create_parser() -> argparse.ArgumentParser:
 
     run_parser = subparsers.add_parser("run", help="Launch MCP server for skills")
     run_parser.add_argument("skill_dir", type=Path, help="Path to skill root directory")
+    run_parser.add_argument(
+        "--session-name",
+        type=str,
+        default=None,
+        help="Session name for context data (uses platformdirs)",
+    )
     exclude_group = run_parser.add_mutually_exclusive_group()
     exclude_group.add_argument(
         "--exclude-skills",
@@ -37,6 +43,12 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     cli_parser = subparsers.add_parser("cli", help="CLI tools for skill management")
+    cli_parser.add_argument(
+        "--session-name",
+        type=str,
+        default=None,
+        help="Session name for context data (uses platformdirs)",
+    )
     cli_subparsers = cli_parser.add_subparsers(dest="cli_command", help="CLI subcommands")
 
     list_skills_parser = cli_subparsers.add_parser("list_skills", help="List skills")
@@ -70,7 +82,8 @@ def create_parser() -> argparse.ArgumentParser:
 
 
 def handle_cli(args: argparse.Namespace) -> None:
-    registry = SkillRegistry(args.skill_dir)
+    context = SkillContext.create(args.session_name) if args.session_name else None
+    registry = SkillRegistry(args.skill_dir, context=context)
 
     if args.cli_command == "list_skills":
         skills = registry.list_skills()
@@ -242,7 +255,11 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "run":
-        mcp = create_mcp_server(args.skill_dir, exclude_skills=args.exclude_skills)
+        mcp = create_mcp_server(
+            args.skill_dir,
+            exclude_skills=args.exclude_skills,
+            session_name=args.session_name,
+        )
         mcp.run()
 
     elif args.command == "cli":

@@ -19,6 +19,17 @@ MAX_SKILL_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
 MAX_COMPATIBILITY_LENGTH = 500
 
+# selected modules are part of the dependencies, see uv.lock
+DEFAULT_MODULES = STDLIB_MODULES.union(
+    {
+        "platformdirs",
+        "strictyaml",
+        "pyyaml",
+        "httpx",
+        "pydantic",
+    }
+)
+
 # Allowed frontmatter fields per Agent Skills Spec
 ALLOWED_FIELDS = {
     "name",
@@ -130,7 +141,7 @@ def extract_imports(script_path: Path) -> set[str]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 module = alias.name.split(".")[0]
-                if module not in STDLIB_MODULES:
+                if module not in DEFAULT_MODULES:
                     imports.add(module)
         elif isinstance(node, ast.ImportFrom):
             if node.module is None:
@@ -138,7 +149,7 @@ def extract_imports(script_path: Path) -> set[str]:
             module = node.module.split(".")[0]
             if module == "relative":
                 continue
-            if module not in STDLIB_MODULES:
+            if module not in DEFAULT_MODULES:
                 imports.add(module)
 
     return imports
