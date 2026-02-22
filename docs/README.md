@@ -14,7 +14,7 @@ You can launch skills in the `mcp.json` format. For example if our skills direct
       "args": [
         "structured_skills",
         "run",
-        "/path/to/root",
+        "/path/to/root"
       ]
     }
   }
@@ -86,31 +86,4 @@ curl http://localhost:1234/api/v1/chat \
   },
   "response_id": "resp_4184f10e02ff80d1a09519ff925142042ccf168105a53863"
 }
-```
-
-## `smolagents` Integration
-
-structured_skills provides integration with [smolagents](https://github.com/huggingface/smolagents):
-
-```sh
-uv pip install structured_skills[smolagents]
-```
-
-```py
-from structured_skills import SkillRegistry
-from structured_skills.smolagents import create_smolagents_tools
-
-registry = SkillRegistry("/path/to/skills")
-
-# Create all tools
-tools = create_smolagents_tools(registry)
-
-# Or create specific tools
-tools = create_smolagents_tools(registry, tools=["list_skills", "load_skill"])
-
-# Use with smolagents
-from smolagents import CodeAgent, HfApiModel
-
-agent = CodeAgent(tools=tools, model=HfApiModel())
-agent.run("List available skills")
 ```

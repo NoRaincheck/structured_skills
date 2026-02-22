@@ -161,6 +161,12 @@ def consolidate_history(history: str, hash: str):
         f.write("\n".join(cleaned_history))
 
 
+def reset():
+    MEMORY_JSONL.write_text("")
+    HISTORY_JSONL.write_text("")
+    _update_skill()
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -207,6 +213,9 @@ if __name__ == "__main__":
     # view_history command
     subparsers.add_parser("view_history", help="View full history")
 
+    # reset command
+    subparsers.add_parser("reset", help="Reset all memory and history")
+
     # consolidate_memory command
     consolidate_memory_parser = subparsers.add_parser(
         "consolidate_memory", help="Consolidate memory"
@@ -241,6 +250,9 @@ if __name__ == "__main__":
         print(view_memory())
     elif args.command == "view_history":
         print(view_history())
+    elif args.command == "reset":
+        reset()
+        print("Memory and history reset successfully")
     elif args.command == "consolidate_memory":
         result = consolidate_memory(args.memories, args.hash)
         if result:
