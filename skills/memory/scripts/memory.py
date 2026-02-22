@@ -105,7 +105,6 @@ def _search_event(
     if group is not None:
         items = [x for x in items if f"[{group}]" in x]
 
-    # compaction may screw things up so we need to safely get the content.
     content = []
     for item in items:
         if "]" in item:
