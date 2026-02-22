@@ -1,14 +1,25 @@
-from typing import TYPE_CHECKING
+# smolagents Integration
 
-from structured_skills.skill_registry import SkillRegistry
+This recipe shows how to integrate structured_skills with [smolagents](https://github.com/huggingface/smolagents).
 
-if TYPE_CHECKING:
-    from smolagents import Tool  # type: ignore[unresolved-import]
+## Installation
+
+```sh
+uv pip install structured_skills smolagents
+```
+
+## Recipe
+
+Copy this code into your project:
+
+```python
+from structured_skills import SkillRegistry
+from smolagents import Tool
 
 
 def create_smolagents_tools(
     registry: SkillRegistry, tools: list[str] | None = None
-) -> list["Tool"]:
+) -> list[Tool]:
     """
     Create smolagents Tool instances from a SkillRegistry.
 
@@ -20,8 +31,6 @@ def create_smolagents_tools(
     Returns:
         List of smolagents Tool instances
     """
-    from smolagents import Tool  # type: ignore[unresolved-import]
-
     tool_names = tools or [
         "list_skills",
         "load_skill",
@@ -117,3 +126,22 @@ def create_smolagents_tools(
             result.append(tool_classes[name]())
 
     return result
+```
+
+## Usage
+
+```python
+from smolagents import CodeAgent, HfApiModel
+
+registry = SkillRegistry("/path/to/skills")
+
+# Create all tools
+tools = create_smolagents_tools(registry)
+
+# Or create specific tools
+tools = create_smolagents_tools(registry, tools=["list_skills", "load_skill"])
+
+# Use with smolagents
+agent = CodeAgent(tools=tools, model=HfApiModel())
+agent.run("List available skills")
+```

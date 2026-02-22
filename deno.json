@@ -1,0 +1,18 @@
+{
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 120,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve",
+    "include": [
+      ".github/**/*.yml",
+      "docs/**/*.md",
+      "docs/**/*.html",
+      "README.md",
+      "deno.json"
+    ]
+  },
+  "lock": false
+}

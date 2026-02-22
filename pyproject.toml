@@ -12,9 +12,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-all = ["smolagents>=1.0.0", "ruff>=0.15.2"]
+all = ["ruff>=0.15.2"]
 cli = ["ruff>=0.15.2"]
-smolagents = ["smolagents>=1.0.0"]
 
 [project.scripts]
 structured_skills = "structured_skills:main"
@@ -26,12 +25,12 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "bump-my-version>=1.2.7",
+    "deno>=2.6.10",  # only used for formatting at this stage
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "ruff>=0.15.2",
     "ty>=0.0.17",
 ]
-smolagents = ["smolagents>=1.0.0"]
 
 [tool.coverage.run]
 omit = [

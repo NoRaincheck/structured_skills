@@ -30,8 +30,8 @@
     />
     <style>
       :root {
-        --base-font-family: "National Park", sans-serif;
-        --code-font-family: "Roboto Mono", "Iosevka Web", monospace;
+        --base-font-family: 'National Park', sans-serif;
+        --code-font-family: 'Roboto Mono', 'Iosevka Web', monospace;
         --code-font-size: 0.8rem;
         --code-block-padding: 0.8em 0.8em 0.8em 0.8em;
         --content-max-width: 80em;
@@ -39,7 +39,7 @@
     </style>
   </head>
 
-<body>
+  <body>
     <div id="app"></div>
     <style>
       /* override font-weight style when it's inside an `a` when docsify styles it */
@@ -48,7 +48,7 @@
       }
     </style>
     <script type="module" data-cfasync="false">
-      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
 
       mermaid.initialize({
         startOnLoad: false,
@@ -59,17 +59,17 @@
       window.$docsify = {
         loadSidebar: true,
         alias: {
-          '/.*/_sidebar.md': '/_sidebar.md'
-        },      
+          '/.*/_sidebar.md': '/_sidebar.md',
+        },
         markdown: {
           renderer: {
             code(code, lang) {
-              if (lang === "mermaid") {
+              if (lang === 'mermaid') {
                 const svgName = `mermaid-svg-${svgCounter++}`;
                 const MERMAID_CONTAINER_ID = `${svgName}-container`;
                 mermaid.render(svgName, code).then(({ svg }) => {
                   const containerElement = document.querySelector(
-                    `#${MERMAID_CONTAINER_ID}`
+                    `#${MERMAID_CONTAINER_ID}`,
                   );
                   if (containerElement) {
                     containerElement.innerHTML = svg;
@@ -108,6 +108,5 @@
     <script
       src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-ini.min.js"
     ></script>
-
-</body>
+  </body>
 </html>

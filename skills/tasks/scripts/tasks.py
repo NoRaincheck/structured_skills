@@ -248,6 +248,15 @@ def update_task(refno: str, description: str | None = None, recurrence: str | No
     return True
 
 
+def reset():
+    import shutil
+
+    TASKS_TXT.write_text("")
+    if OUTPUT_DIR.exists():
+        shutil.rmtree(OUTPUT_DIR)
+    _update_skill_md()
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -276,6 +285,8 @@ if __name__ == "__main__":
     update_parser.add_argument("refno", help="Task reference number")
     update_parser.add_argument("--description", "-d", help="New description")
     update_parser.add_argument("--recurrence", "-r", help="New recurrence pattern")
+
+    reset_parser = subparsers.add_parser("reset", help="Reset all tasks and output")
 
     args = parser.parse_args()
 
@@ -308,3 +319,6 @@ if __name__ == "__main__":
             print(f"Updated task: {args.refno}")
         else:
             print(f"Task not found: {args.refno}")
+    elif args.command == "reset":
+        reset()
+        print("Tasks and output reset successfully")

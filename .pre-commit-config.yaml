@@ -15,3 +15,13 @@ repos:
         entry: uv run ty check . --ignore unresolved-import
         language: python
         pass_filenames: false
+      - id: deno-fmt
+        name: deno fmt
+        entry: uv run deno fmt
+        pass_filenames: false
+        language: system
+  - repo: https://github.com/espressif/conventional-precommit-linter
+    rev: v1.7.0 # The version tag you wish to use
+    hooks:
+      - id: conventional-precommit-linter
+        stages: [commit-msg]
