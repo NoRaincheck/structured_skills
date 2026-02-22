@@ -1,3 +1,9 @@
+# /// script
+# requires-python = ">=3.14"
+# dependencies = [
+#     "platformdirs>=4.9.2",
+# ]
+# ///
 """
 tasks.py - Recurring task management with best-effort execution
 """

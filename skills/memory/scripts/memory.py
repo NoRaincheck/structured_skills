@@ -1,3 +1,9 @@
+# /// script
+# requires-python = ">=3.14"
+# dependencies = [
+#     "platformdirs>=4.9.2",
+# ]
+# ///
 """
 memory.py dynamically updates SKILL.md
 """

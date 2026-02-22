@@ -1,6 +1,8 @@
 ---
 name: memory
 description: Two-layer memory system
+metadata:
+  dependencies: ["platformdirs"]
 ---
 
 # Memory
