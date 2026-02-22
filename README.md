@@ -1,6 +1,6 @@
 # structured_skills
 
-[![PyPI version](https://badge.fury.io/py/structured_skills.svg)](https://badge.fury.io/py/structured_skills) [![CI](https://github.com/NoRaincheck/structured_skills/actions/workflows/test.yml/badge.svg)](https://github.com/NoRaincheck/structured_skills/actions/workflows/test.yml)
+[![PyPI version](https://badge.fury.io/py/structured_skills.svg)](https://badge.fury.io/py/structured_skills) [![CI](https://github.com/NoRaincheck/structured_skills/actions/workflows/ci.yml/badge.svg)](https://github.com/NoRaincheck/structured_skills/actions/workflows/ci.yml)
 
 Structured Skills for Agents - launch MCP servers from skill directories
 
