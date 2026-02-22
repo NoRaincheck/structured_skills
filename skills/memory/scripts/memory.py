@@ -11,8 +11,8 @@ from typing import Literal
 SKILL_ROOT_DIR = Path(__file__).parent.parent
 SKILL_MD = SKILL_ROOT_DIR.joinpath("SKILL.md")
 SKILL_MD_MEMORIES = "## Memories"
-MEMORY_JSONL = SKILL_ROOT_DIR.joinpath("memory.text")
-HISTORY_JSONL = SKILL_ROOT_DIR.joinpath("history.text")
+MEMORY_TXT = SKILL_ROOT_DIR.joinpath("memory.text")
+HISTORY_TXT = SKILL_ROOT_DIR.joinpath("history.text")
 MEMORY_WINDOW = 50
 HISTORY_WINDOW = 150
 WARNING_MESSAGE = "_comment:FULL PLEASE CONSOLIDATE"
@@ -25,7 +25,7 @@ def _iso_date():
 
 def _update_skill():
     base, _ = SKILL_MD.read_text().split(SKILL_MD_MEMORIES)
-    memory = f"{SKILL_MD_MEMORIES}\n\n" + MEMORY_JSONL.read_text()
+    memory = f"{SKILL_MD_MEMORIES}\n\n" + MEMORY_TXT.read_text()
     with SKILL_MD.open("w") as f:
         f.write(f"{base.strip()}\n\n{memory}")
 
@@ -51,13 +51,13 @@ def _add_event(
 
 
 def add_memory(text: str, group: Literal["user", "context", "notes"] | None = None):
-    _add_event(MEMORY_JSONL, MEMORY_WINDOW, text, group)
+    _add_event(MEMORY_TXT, MEMORY_WINDOW, text, group)
     _update_skill()
 
 
 def add_history(text, group: Literal["user", "context", "notes"] | None = None):
     event_time = _iso_date()
-    _add_event(HISTORY_JSONL, HISTORY_WINDOW, f"{event_time} {text}", group)
+    _add_event(HISTORY_TXT, HISTORY_WINDOW, f"{event_time} {text}", group)
 
 
 def _search_event(
@@ -92,7 +92,7 @@ def search_memory(
     group: Literal["user", "context", "notes"] | str | None = "",
     top_k: int = 5,
 ) -> str:
-    results = _search_event(MEMORY_JSONL, query, group, top_k)
+    results = _search_event(MEMORY_TXT, query, group, top_k)
     return "\n".join(results)
 
 
@@ -101,7 +101,7 @@ def search_history(
     group: Literal["user", "context", "notes"] | str | None = "",
     top_k: int = 5,
 ) -> str:
-    results = _search_event(HISTORY_JSONL, query, group, top_k)
+    results = _search_event(HISTORY_TXT, query, group, top_k)
     return "\n".join(results)
 
 
@@ -119,15 +119,15 @@ def _view_event(target: Path) -> str:
 
 
 def view_memory() -> str:
-    return _view_event(MEMORY_JSONL)
+    return _view_event(MEMORY_TXT)
 
 
 def view_history() -> str:
-    return _view_event(HISTORY_JSONL)
+    return _view_event(HISTORY_TXT)
 
 
 def consolidate_memory(memories: str, hash: str):
-    hash_info = _get_hash(MEMORY_JSONL).split(" ")[1]
+    hash_info = _get_hash(MEMORY_TXT).split(" ")[1]
     if hash_info != hash.strip():
         return "Hash do not match! No consolidation occurred. Check the hash by running view_memory"
 
@@ -138,14 +138,14 @@ def consolidate_memory(memories: str, hash: str):
             cleaned_memories.append(item)
         else:
             cleaned_memories.append(f"[notes] {item}")
-    with MEMORY_JSONL.open("w") as f:
+    with MEMORY_TXT.open("w") as f:
         f.write("\n".join(cleaned_memories))
     _update_skill()
 
 
 def consolidate_history(history: str, hash: str):
     event_time = _iso_date()
-    hash_info = _get_hash(HISTORY_JSONL).split(" ")[1]
+    hash_info = _get_hash(HISTORY_TXT).split(" ")[1]
     if hash_info != hash.strip():
         return (
             "Hash do not match! No consolidation occurred. Check the hash by running view_history"
@@ -157,13 +157,13 @@ def consolidate_history(history: str, hash: str):
             cleaned_history.append(item)
         else:
             cleaned_history.append(f"[notes] [{event_time}] {item}")
-    with HISTORY_JSONL.open("w") as f:
+    with HISTORY_TXT.open("w") as f:
         f.write("\n".join(cleaned_history))
 
 
 def reset():
-    MEMORY_JSONL.write_text("")
-    HISTORY_JSONL.write_text("")
+    MEMORY_TXT.write_text("")
+    HISTORY_TXT.write_text("")
     _update_skill()
 
 
