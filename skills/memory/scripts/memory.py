@@ -3,12 +3,34 @@ memory.py dynamically updates SKILL.md
 """
 
 import hashlib
+import string
 from datetime import datetime, timezone
 from difflib import get_close_matches
 from pathlib import Path
 from typing import Literal
 
 SKILL_ROOT_DIR = Path(__file__).parent.parent
+STOP_WORDS_FILE = SKILL_ROOT_DIR / "stop_words.txt"
+STOP_WORDS: frozenset[str] | None = None
+
+
+def _load_stop_words() -> frozenset[str]:
+    global STOP_WORDS
+    if STOP_WORDS is None:
+        if STOP_WORDS_FILE.exists():
+            words = STOP_WORDS_FILE.read_text().strip().split("\n")
+            STOP_WORDS = frozenset(w.strip().lower() for w in words if w.strip())
+        else:
+            STOP_WORDS = frozenset()
+    return STOP_WORDS
+
+
+def _remove_stopwords(text: str) -> str:
+    stop_words = _load_stop_words()
+    words = text.lower().translate(str.maketrans("", "", string.punctuation)).split()
+    return " ".join(w for w in words if w not in stop_words)
+
+
 SKILL_MD = SKILL_ROOT_DIR.joinpath("SKILL.md")
 SKILL_MD_MEMORIES = "## Memories"
 MEMORY_TXT = SKILL_ROOT_DIR.joinpath("memory.text")
@@ -72,7 +94,6 @@ def _search_event(
     if group is not None:
         items = [x for x in items if f"[{group}]" in x]
 
-    # compaction may screw things up so we need to safely get the content.
     content = []
     for item in items:
         if "]" in item:
@@ -80,10 +101,12 @@ def _search_event(
         else:
             content.append(item)
 
-    matches = get_close_matches(query, content, cutoff=0)[:top_k]
+    query_clean = _remove_stopwords(query)
+    content_clean = [_remove_stopwords(c) for c in content]
+    matches = get_close_matches(query_clean, content_clean, cutoff=0)[:top_k]
     results = []
     for match in matches:
-        results.append(items[content.index(match)])
+        results.append(items[content_clean.index(match)])
     return results
 
 

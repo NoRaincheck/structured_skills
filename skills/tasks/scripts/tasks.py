@@ -5,11 +5,34 @@ tasks.py - Recurring task management with best-effort execution
 import hashlib
 import os
 import re
+import string
 import time
 from datetime import datetime, timedelta, timezone
+from difflib import get_close_matches
 from pathlib import Path
 
 SKILL_ROOT_DIR = Path(__file__).parent.parent
+STOP_WORDS_FILE = SKILL_ROOT_DIR / "stop_words.txt"
+STOP_WORDS: frozenset[str] | None = None
+
+
+def _load_stop_words() -> frozenset[str]:
+    global STOP_WORDS
+    if STOP_WORDS is None:
+        if STOP_WORDS_FILE.exists():
+            words = STOP_WORDS_FILE.read_text().strip().split("\n")
+            STOP_WORDS = frozenset(w.strip().lower() for w in words if w.strip())
+        else:
+            STOP_WORDS = frozenset()
+    return STOP_WORDS
+
+
+def _remove_stopwords(text: str) -> str:
+    stop_words = _load_stop_words()
+    words = text.lower().translate(str.maketrans("", "", string.punctuation)).split()
+    return " ".join(w for w in words if w not in stop_words)
+
+
 TASKS_TXT = SKILL_ROOT_DIR.joinpath("tasks.txt")
 OUTPUT_DIR = SKILL_ROOT_DIR.joinpath("output")
 SKILL_MD = SKILL_ROOT_DIR.joinpath("SKILL.md")
@@ -248,6 +271,21 @@ def update_task(refno: str, description: str | None = None, recurrence: str | No
     return True
 
 
+def search_tasks(query: str, top_k: int = 5) -> list[dict]:
+    tasks = _load_tasks()
+    if not tasks:
+        return []
+    descriptions = [t["description"] for t in tasks]
+    descriptions_clean = [_remove_stopwords(d) for d in descriptions]
+    query_clean = _remove_stopwords(query)
+    matches = get_close_matches(query_clean, descriptions_clean, cutoff=0)[:top_k]
+    results = []
+    for match in matches:
+        idx = descriptions_clean.index(match)
+        results.append(tasks[idx])
+    return results
+
+
 def reset():
     import shutil
 
@@ -286,6 +324,10 @@ if __name__ == "__main__":
     update_parser.add_argument("--description", "-d", help="New description")
     update_parser.add_argument("--recurrence", "-r", help="New recurrence pattern")
 
+    search_parser = subparsers.add_parser("search_tasks", help="Search tasks by description")
+    search_parser.add_argument("query", help="Search query")
+    search_parser.add_argument("--top-k", "-k", type=int, default=5, help="Number of results")
+
     reset_parser = subparsers.add_parser("reset", help="Reset all tasks and output")
 
     args = parser.parse_args()
@@ -319,6 +361,11 @@ if __name__ == "__main__":
             print(f"Updated task: {args.refno}")
         else:
             print(f"Task not found: {args.refno}")
+    elif args.command == "search_tasks":
+        tasks = search_tasks(args.query, args.top_k)
+        for t in tasks:
+            recur = f" | recur:{t['recurrence']}" if t.get("recurrence") else ""
+            print(f"[{t['refno']}] {t['description']} | next:{t['next_trigger']}{recur}")
     elif args.command == "reset":
         reset()
         print("Tasks and output reset successfully")
