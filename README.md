@@ -6,7 +6,7 @@ Structured Skills for Agents - launch MCP servers from skill directories
 
 ## No LLM Required
 
-**This library works perfectly without any LLM.** Skills are explicitly defined with scripts and resources you control. Unlike AI agents that can execute arbitrary commands, structured_skills only runs what you've explicitly defined in your skill directories. Everything is gated by the scripts you write - no surprises, no unbounded execution.
+**The goal of this library is that it works without any LLM.** Skills are explicitly defined with scripts and resources you control. Unlike AI agents that can execute arbitrary commands, structured_skills only runs what you've explicitly defined in your skill directories. Everything is gated by the scripts you write - no surprises, no unbounded execution.
 
 ## Usage
 
@@ -22,7 +22,8 @@ To test via CLI:
 structured_skills cli list_skills
 structured_skills cli load_skill <skill_name>
 structured_skills cli read_skill_resource <skill_name> <resource_name>
-structured_skills cli run_skill <skill_name> <function_name>
+# support sessions if memory/history is required
+structured_skills cli run_skill --session-name my-session-name <skill_name> <function_name>
 ```
 
 Programmatically:

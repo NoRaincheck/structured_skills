@@ -3,42 +3,53 @@ memory.py dynamically updates SKILL.md
 """
 
 import hashlib
-import string
 from datetime import datetime, timezone
 from difflib import get_close_matches
 from pathlib import Path
 from typing import Literal
 
-SKILL_ROOT_DIR = Path(__file__).parent.parent
-STOP_WORDS_FILE = SKILL_ROOT_DIR / "stop_words.txt"
-STOP_WORDS: frozenset[str] | None = None
+import platformdirs
 
-
-def _load_stop_words() -> frozenset[str]:
-    global STOP_WORDS
-    if STOP_WORDS is None:
-        if STOP_WORDS_FILE.exists():
-            words = STOP_WORDS_FILE.read_text().strip().split("\n")
-            STOP_WORDS = frozenset(w.strip().lower() for w in words if w.strip())
-        else:
-            STOP_WORDS = frozenset()
-    return STOP_WORDS
-
-
-def _remove_stopwords(text: str) -> str:
-    stop_words = _load_stop_words()
-    words = text.lower().translate(str.maketrans("", "", string.punctuation)).split()
-    return " ".join(w for w in words if w not in stop_words)
-
-
-SKILL_MD = SKILL_ROOT_DIR.joinpath("SKILL.md")
 SKILL_MD_MEMORIES = "## Memories"
-MEMORY_TXT = SKILL_ROOT_DIR.joinpath("memory.text")
-HISTORY_TXT = SKILL_ROOT_DIR.joinpath("history.text")
 MEMORY_WINDOW = 50
 HISTORY_WINDOW = 150
 WARNING_MESSAGE = "_comment:FULL PLEASE CONSOLIDATE"
 DEFAULT_GROUP = "notes"
+SKILLNAME = "memory"
+
+
+def _get_data_dir() -> Path:
+    """Get the data directory using platformdirs, or skill root if not available."""
+    data_dir = Path(platformdirs.user_data_dir(appname=SKILLNAME))
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
+def _get_skill_md() -> Path:
+    """Get the SKILL.md path."""
+    file = _get_data_dir() / "SKILL.md"
+    file.touch(exist_ok=True)
+    return file
+
+
+def _get_memory_txt() -> Path:
+    """Get the memory.txt path."""
+    file = _get_data_dir() / "memory.txt"
+    file.touch(exist_ok=True)
+    return file
+
+
+def _get_history_txt() -> Path:
+    """Get the history.txt path."""
+    file = _get_data_dir() / "history.txt"
+    file.touch(exist_ok=True)
+    return file
+
+
+def _ensure_data_dir() -> None:
+    """Ensure the data directory exists."""
+    data_dir = _get_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _iso_date():
@@ -46,10 +57,10 @@ def _iso_date():
 
 
 def _update_skill():
-    base, _ = SKILL_MD.read_text().split(SKILL_MD_MEMORIES)
-    memory = f"{SKILL_MD_MEMORIES}\n\n" + MEMORY_TXT.read_text()
-    with SKILL_MD.open("w") as f:
-        f.write(f"{base.strip()}\n\n{memory}")
+    _ensure_data_dir()
+    memory = f"{SKILL_MD_MEMORIES}\n\n" + _get_memory_txt().read_text()
+    with _get_skill_md().open("w") as f:
+        f.write(memory)
 
 
 def _compact(items: list[str], window: int) -> str:
@@ -73,13 +84,13 @@ def _add_event(
 
 
 def add_memory(text: str, group: Literal["user", "context", "notes"] | None = None):
-    _add_event(MEMORY_TXT, MEMORY_WINDOW, text, group)
+    _add_event(_get_memory_txt(), MEMORY_WINDOW, text, group)
     _update_skill()
 
 
 def add_history(text, group: Literal["user", "context", "notes"] | None = None):
     event_time = _iso_date()
-    _add_event(HISTORY_TXT, HISTORY_WINDOW, f"{event_time} {text}", group)
+    _add_event(_get_history_txt(), HISTORY_WINDOW, f"{event_time} {text}", group)
 
 
 def _search_event(
@@ -101,12 +112,10 @@ def _search_event(
         else:
             content.append(item)
 
-    query_clean = _remove_stopwords(query)
-    content_clean = [_remove_stopwords(c) for c in content]
-    matches = get_close_matches(query_clean, content_clean, cutoff=0)[:top_k]
+    matches = get_close_matches(query, content, cutoff=0)[:top_k]
     results = []
     for match in matches:
-        results.append(items[content_clean.index(match)])
+        results.append(items[content.index(match)])
     return results
 
 
@@ -115,7 +124,7 @@ def search_memory(
     group: Literal["user", "context", "notes"] | str | None = "",
     top_k: int = 5,
 ) -> str:
-    results = _search_event(MEMORY_TXT, query, group, top_k)
+    results = _search_event(_get_memory_txt(), query, group, top_k)
     return "\n".join(results)
 
 
@@ -124,7 +133,7 @@ def search_history(
     group: Literal["user", "context", "notes"] | str | None = "",
     top_k: int = 5,
 ) -> str:
-    results = _search_event(HISTORY_TXT, query, group, top_k)
+    results = _search_event(_get_history_txt(), query, group, top_k)
     return "\n".join(results)
 
 
@@ -142,15 +151,15 @@ def _view_event(target: Path) -> str:
 
 
 def view_memory() -> str:
-    return _view_event(MEMORY_TXT)
+    return _view_event(_get_memory_txt())
 
 
 def view_history() -> str:
-    return _view_event(HISTORY_TXT)
+    return _view_event(_get_history_txt())
 
 
 def consolidate_memory(memories: str, hash: str):
-    hash_info = _get_hash(MEMORY_TXT).split(" ")[1]
+    hash_info = _get_hash(_get_memory_txt()).split(" ")[1]
     if hash_info != hash.strip():
         return "Hash do not match! No consolidation occurred. Check the hash by running view_memory"
 
@@ -161,14 +170,14 @@ def consolidate_memory(memories: str, hash: str):
             cleaned_memories.append(item)
         else:
             cleaned_memories.append(f"[notes] {item}")
-    with MEMORY_TXT.open("w") as f:
+    with _get_memory_txt().open("w") as f:
         f.write("\n".join(cleaned_memories))
     _update_skill()
 
 
 def consolidate_history(history: str, hash: str):
     event_time = _iso_date()
-    hash_info = _get_hash(HISTORY_TXT).split(" ")[1]
+    hash_info = _get_hash(_get_history_txt()).split(" ")[1]
     if hash_info != hash.strip():
         return (
             "Hash do not match! No consolidation occurred. Check the hash by running view_history"
@@ -180,14 +189,15 @@ def consolidate_history(history: str, hash: str):
             cleaned_history.append(item)
         else:
             cleaned_history.append(f"[notes] [{event_time}] {item}")
-    with HISTORY_TXT.open("w") as f:
+    with _get_history_txt().open("w") as f:
         f.write("\n".join(cleaned_history))
 
 
 def reset():
-    MEMORY_TXT.write_text("")
-    HISTORY_TXT.write_text("")
-    _update_skill()
+    _ensure_data_dir()
+    _get_memory_txt().write_text("")
+    _get_history_txt().write_text("")
+    _get_memory_txt().write_text("")
 
 
 if __name__ == "__main__":
