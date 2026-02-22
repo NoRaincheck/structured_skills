@@ -4,6 +4,10 @@
 
 Structured Skills for Agents - launch MCP servers from skill directories
 
+## No LLM Required
+
+**This library works perfectly without any LLM.** Skills are explicitly defined with scripts and resources you control. Unlike AI agents that can execute arbitrary commands, structured_skills only runs what you've explicitly defined in your skill directories. Everything is gated by the scripts you write - no surprises, no unbounded execution.
+
 ## Usage
 
 Quick usage to launch MCP server:
@@ -39,33 +43,6 @@ registry.read_skill_resource(skill_name, resource_name, args)
 
 # Execute a skill function
 registry.run_skill(skill_name, function_name, args)
-```
-
-## smolagents Integration
-
-structured_skills provides integration with [smolagents](https://github.com/huggingface/smolagents):
-
-```sh
-uv pip install structured_skills[smolagents]
-```
-
-```py
-from structured_skills import SkillRegistry
-from structured_skills.smolagents import create_smolagents_tools
-
-registry = SkillRegistry("/path/to/skills")
-
-# Create all tools
-tools = create_smolagents_tools(registry)
-
-# Or create specific tools
-tools = create_smolagents_tools(registry, tools=["list_skills", "load_skill"])
-
-# Use with smolagents
-from smolagents import CodeAgent, HfApiModel
-
-agent = CodeAgent(tools=tools, model=HfApiModel())
-agent.run("List available skills")
 ```
 
 ## Validation
