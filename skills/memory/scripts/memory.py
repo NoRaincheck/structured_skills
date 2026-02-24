@@ -1,9 +1,3 @@
-# /// script
-# requires-python = ">=3.14"
-# dependencies = [
-#     "platformdirs>=4.9.2",
-# ]
-# ///
 """
 memory.py dynamically updates SKILL.md
 """
@@ -14,48 +8,32 @@ from difflib import get_close_matches
 from pathlib import Path
 from typing import Literal
 
-import platformdirs
-
 SKILL_MD_MEMORIES = "## Memories"
 MEMORY_WINDOW = 50
 HISTORY_WINDOW = 150
 WARNING_MESSAGE = "_comment:FULL PLEASE CONSOLIDATE"
 DEFAULT_GROUP = "notes"
-SKILLNAME = "memory"
-
-
-def _get_data_dir() -> Path:
-    """Get the data directory using platformdirs, or skill root if not available."""
-    data_dir = Path(platformdirs.user_data_dir(appname=SKILLNAME))
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir
 
 
 def _get_skill_md() -> Path:
     """Get the SKILL.md path."""
-    file = _get_data_dir() / "SKILL.md"
+    file = Path("SKILL.md")
     file.touch(exist_ok=True)
     return file
 
 
 def _get_memory_txt() -> Path:
     """Get the memory.txt path."""
-    file = _get_data_dir() / "memory.txt"
+    file = Path("memory.txt")
     file.touch(exist_ok=True)
     return file
 
 
 def _get_history_txt() -> Path:
     """Get the history.txt path."""
-    file = _get_data_dir() / "history.txt"
+    file = Path("history.txt")
     file.touch(exist_ok=True)
     return file
-
-
-def _ensure_data_dir() -> None:
-    """Ensure the data directory exists."""
-    data_dir = _get_data_dir()
-    data_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _iso_date():
@@ -63,7 +41,6 @@ def _iso_date():
 
 
 def _update_skill():
-    _ensure_data_dir()
     memory = f"{SKILL_MD_MEMORIES}\n\n" + _get_memory_txt().read_text()
     with _get_skill_md().open("w") as f:
         f.write(memory)
@@ -200,7 +177,6 @@ def consolidate_history(history: str, hash: str):
 
 
 def reset():
-    _ensure_data_dir()
     _get_memory_txt().write_text("")
     _get_history_txt().write_text("")
     _get_memory_txt().write_text("")

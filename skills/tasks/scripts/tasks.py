@@ -1,9 +1,3 @@
-# /// script
-# requires-python = ">=3.14"
-# dependencies = [
-#     "platformdirs>=4.9.2",
-# ]
-# ///
 """
 tasks.py - Recurring task management with best-effort execution
 """
@@ -17,45 +11,29 @@ from datetime import datetime, timedelta, timezone
 from difflib import get_close_matches
 from pathlib import Path
 
-import platformdirs
-
 SKILL_MD_TASKS = "## Tasks"
 MIN_RECURRENCE_MINUTES = 30
-SKILLNAME = "tasks"
-
-
-def _get_data_dir() -> Path:
-    """Get the data directory using platformdirs, or skill root if not available."""
-    data_dir = Path(platformdirs.user_data_dir(appname=SKILLNAME))
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir
 
 
 def _get_tasks_txt() -> Path:
     """Get the tasks.txt path."""
-    file = _get_data_dir() / "tasks.txt"
+    file = Path("tasks.txt")
     file.touch(exist_ok=True)
     return file
 
 
 def _get_output_dir() -> Path:
     """Get the output directory path."""
-    output_dir = _get_data_dir() / "output"
+    output_dir = Path("output")
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
 
 def _get_skill_md() -> Path:
     """Get the SKILL.md path."""
-    file = _get_data_dir() / "SKILL.md"
+    file = Path("SKILL.md")
     file.touch(exist_ok=True)
     return file
-
-
-def _ensure_data_dir() -> None:
-    """Ensure the data directory exists."""
-    data_dir = _get_data_dir()
-    data_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _iso_date() -> str:
@@ -159,7 +137,6 @@ def _load_tasks() -> list[dict]:
 
 
 def _save_tasks(tasks: list[dict]) -> None:
-    _ensure_data_dir()
     lines = [_format_task_line(t) for t in tasks]
     _get_tasks_txt().write_text("\n".join(lines) + "\n")
 
@@ -297,8 +274,6 @@ def search_tasks(query: str, top_k: int = 5) -> list[dict]:
 
 
 def reset():
-
-    _ensure_data_dir()
     _get_tasks_txt().write_text("")
     if _get_output_dir().exists():
         shutil.rmtree(_get_output_dir())
