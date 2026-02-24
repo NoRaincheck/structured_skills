@@ -12,7 +12,6 @@ def platformdir_env_override(data_dir: Path):
     for key, value in overrides.items():
         old_values[key] = os.environ.get(key)
         os.environ[key] = value
-        print(key, value)
     try:
         yield
     finally:

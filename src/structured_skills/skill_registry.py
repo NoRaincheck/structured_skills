@@ -202,7 +202,12 @@ class SkillRegistry:
                             info = extract_function_info(content, resource_name)
                             return str(info)
                         else:
-                            return execute_script_impl(content, resource_name, args or {})
+                            return execute_script_impl(
+                                content,
+                                resource_name,
+                                args or {},
+                                self.context.data_dir / skill_name,
+                            )
 
         raise Exception(f"[read_skill_resource] Unable to find resource: {resource_name}")
 
@@ -231,7 +236,12 @@ class SkillRegistry:
                     content = script.read_text()
                     if f"def {function_or_script_name}(" in content:
                         return str(
-                            execute_script_impl(content, function_or_script_name, args or {})
+                            execute_script_impl(
+                                content,
+                                function_or_script_name,
+                                args or {},
+                                self.context.data_dir / skill_name,
+                            )
                         )
 
         raise Exception(

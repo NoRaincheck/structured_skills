@@ -1,8 +1,24 @@
+import os
+from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 
 import libcst as cst
 
 SECRET_VARIABLE = "__VALUE"
+
+
+@contextmanager
+def _script_exec_context(data_dir: Path | None):
+    """Context manager that changes cwd to data_dir before exec, restores after."""
+    old_cwd = Path.cwd()
+    try:
+        if data_dir:
+            data_dir.mkdir(parents=True, exist_ok=True)
+            os.chdir(data_dir)
+        yield
+    finally:
+        os.chdir(old_cwd)
 
 
 @dataclass
@@ -162,8 +178,9 @@ def update_code(source: str, new_call: str) -> str:
     return new_module.code
 
 
-def execute_script(content, function_name, args):
+def execute_script(content, function_name, args, data_dir: Path | None = None):
     output = update_code(content, f"args={str(args)};{SECRET_VARIABLE} = {function_name}(**args)")
     context: dict = {"__builtins__": __builtins__}
-    exec(output, context, context)
+    with _script_exec_context(data_dir):
+        exec(output, context, context)
     return context[SECRET_VARIABLE]
