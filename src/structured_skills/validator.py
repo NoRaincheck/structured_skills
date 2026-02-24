@@ -10,7 +10,6 @@ import unicodedata
 from pathlib import Path
 from typing import Optional
 
-import strictyaml
 import yaml
 
 from structured_skills.stdlib import STDLIB_MODULES
@@ -19,11 +18,9 @@ MAX_SKILL_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
 MAX_COMPATIBILITY_LENGTH = 500
 
-# selected modules are part of the dependencies, see uv.lock
 DEFAULT_MODULES = STDLIB_MODULES.union(
     {
         "platformdirs",
-        "strictyaml",
         "pyyaml",
         "httpx",
         "pydantic",
@@ -82,9 +79,8 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
     body = parts[2].strip()
 
     try:
-        parsed = strictyaml.load(frontmatter_str)
-        metadata = parsed.data
-    except strictyaml.YAMLError as e:
+        metadata = yaml.safe_load(frontmatter_str)
+    except yaml.YAMLError as e:
         raise ValueError(f"Invalid YAML in frontmatter: {e}")
 
     if not isinstance(metadata, dict):
