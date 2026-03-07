@@ -20,7 +20,6 @@ MAX_COMPATIBILITY_LENGTH = 500
 
 DEFAULT_MODULES = STDLIB_MODULES.union(
     {
-        "platformdirs",
         "pyyaml",
         "httpx",
         "pydantic",

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from structured_skills.server import create_mcp_server
 from structured_skills.skill_registry import SkillContext, SkillRegistry
+from structured_skills.tasks.cli import add_tasks_subparser, handle_tasks_cli
 from structured_skills.validator import (
     _get_declared_dependencies,
     fix_dependencies,
@@ -26,7 +27,13 @@ def create_parser() -> argparse.ArgumentParser:
         "--session-name",
         type=str,
         default=None,
-        help="Session name for context data (uses platformdirs)",
+        help="Optional session label for context data",
+    )
+    run_parser.add_argument(
+        "--working-dir",
+        type=Path,
+        default=None,
+        help="Explicit working directory for per-session/channel skill state",
     )
     exclude_group = run_parser.add_mutually_exclusive_group()
     exclude_group.add_argument(
@@ -47,7 +54,13 @@ def create_parser() -> argparse.ArgumentParser:
         "--session-name",
         type=str,
         default=None,
-        help="Session name for context data (uses platformdirs)",
+        help="Optional session label for context data",
+    )
+    cli_parser.add_argument(
+        "--working-dir",
+        type=Path,
+        default=None,
+        help="Explicit working directory for per-session/channel skill state",
     )
     cli_subparsers = cli_parser.add_subparsers(dest="cli_command", help="CLI subcommands")
 
@@ -74,15 +87,43 @@ def create_parser() -> argparse.ArgumentParser:
     run_skill_parser.add_argument("function_or_script", help="Function or script name to run")
     run_skill_parser.add_argument("--args", type=str, default=None, help="JSON args for the script")
 
+    load_scheduler_parser = cli_subparsers.add_parser(
+        "load_scheduler", help="Load parsed global SCHEDULER.toml"
+    )
+    load_scheduler_parser.add_argument("skill_dir", type=Path, help="Path to skill root directory")
+
+    scheduler_tick_parser = cli_subparsers.add_parser(
+        "scheduler_tick", help="Run one scheduler tick"
+    )
+    scheduler_tick_parser.add_argument("skill_dir", type=Path, help="Path to skill root directory")
+    scheduler_tick_parser.add_argument(
+        "--task-results",
+        type=str,
+        default=None,
+        help="JSON object keyed by task ID with per-task status payloads",
+    )
+    scheduler_tick_parser.add_argument(
+        "--now",
+        type=str,
+        default=None,
+        help="Optional override time in ISO-8601 UTC format",
+    )
+
     check_parser = subparsers.add_parser("check", help="Validate skill directory")
     check_parser.add_argument("skill_dir", type=Path, help="Path to skill directory")
     check_parser.add_argument("--fix", action="store_true", help="Attempt to fix issues")
+
+    add_tasks_subparser(subparsers)
 
     return parser
 
 
 def handle_cli(args: argparse.Namespace) -> None:
-    context = SkillContext.create(args.session_name) if args.session_name else None
+    context = (
+        SkillContext.create(session_name=args.session_name, working_dir=args.working_dir)
+        if args.session_name or args.working_dir
+        else None
+    )
     registry = SkillRegistry(args.skill_dir, context=context)
 
     if args.cli_command == "list_skills":
@@ -108,8 +149,23 @@ def handle_cli(args: argparse.Namespace) -> None:
         import json
 
         args_dict = json.loads(args.args) if args.args else None
-        result = registry.run_skill(args.skill_name, args.function_or_script, args_dict)
-        print(result)
+        result = registry.run_skill_with_metadata(
+            args.skill_name, args.function_or_script, args_dict
+        )
+        print(json.dumps(result, indent=2))
+
+    elif args.cli_command == "load_scheduler":
+        import json
+
+        scheduler = registry.load_scheduler()
+        print(json.dumps(scheduler, indent=2))
+
+    elif args.cli_command == "scheduler_tick":
+        import json
+
+        task_results = json.loads(args.task_results) if args.task_results else None
+        result = registry.scheduler_tick(task_results=task_results, now=args.now)
+        print(json.dumps(result, indent=2))
 
     else:
         print("Unknown CLI command. Use --help for usage.")
@@ -258,7 +314,9 @@ def main() -> None:
         mcp = create_mcp_server(
             args.skill_dir,
             exclude_skills=args.exclude_skills,
+            include_skills=args.include_skills,
             session_name=args.session_name,
+            working_dir=args.working_dir,
         )
         mcp.run()
 
@@ -267,6 +325,15 @@ def main() -> None:
 
     elif args.command == "check":
         handle_check(args)
+
+    elif args.command == "tasks":
+        context = SkillContext.create(session_name=args.session_name, working_dir=args.working_dir)
+        store_path = args.store_file or context.working_dir / "tasks" / "tasks.json"
+        try:
+            handle_tasks_cli(args, store_path=store_path)
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            sys.exit(1)
 
     else:
         parser.print_help()

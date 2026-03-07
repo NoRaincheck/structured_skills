@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 
@@ -46,3 +47,28 @@ class TestCLI:
         )
         assert result.returncode == 0
         assert "fix" in result.stdout.lower()
+
+
+def test_run_skill_script_outputs_json_envelope(temp_skill_dir):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "structured_skills",
+            "cli",
+            "run_skill_script",
+            str(temp_skill_dir),
+            "test-skill",
+            "add",
+            "--args",
+            '{"a": 2, "b": 3}',
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["skill"] == "test-skill"
+    assert payload["task"] == "add"
+    assert payload["args"] == {"a": 2, "b": 3}
+    assert payload["result"] == 5

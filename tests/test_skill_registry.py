@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from structured_skills.skill_registry import SkillRegistry, get_tool
@@ -86,10 +88,104 @@ class TestSkillRegistry:
         result = registry.run_skill("test-skill", "add", {"a": 2, "b": 3})
         assert "5" in result
 
+    def test_run_skill_with_metadata_json_shape(self, temp_skill_dir):
+        registry = SkillRegistry(temp_skill_dir)
+        result = registry.run_skill_with_metadata("test-skill", "add", {"a": 2, "b": 3})
+        assert result["skill"] == "test-skill"
+        assert result["task"] == "add"
+        assert result["args"] == {"a": 2, "b": 3}
+        assert result["result"] == 5
+
     def test_run_skill_not_found(self, temp_skill_dir):
         registry = SkillRegistry(temp_skill_dir)
         with pytest.raises(Exception, match="Failed to execute"):
             registry.run_skill("test-skill", "nonexistent", {})
+
+    def test_load_scheduler(self, temp_skill_dir):
+        registry = SkillRegistry(temp_skill_dir)
+        scheduler = registry.load_scheduler()
+        assert scheduler["agent"] == "test-agent"
+        assert len(scheduler["tasks"]) == 1
+        assert scheduler["tasks"][0]["id"] == "test-check"
+
+    def test_scheduler_tick_writes_context_state(self, temp_skill_dir, tmp_path):
+        context_dir = tmp_path / "session-a"
+        registry = SkillRegistry(temp_skill_dir, context=None)
+        registry.context.working_dir = context_dir
+        result = registry.scheduler_tick(
+            task_results={
+                "test-check": {
+                    "status": "success",
+                    "reason": "Signal healthy",
+                    "dedup_key": "signal-ok",
+                    "observed_value": {"ok": True},
+                }
+            },
+            now="2026-03-07T09:30:00Z",
+        )
+        assert "summary" in result
+        assert result["summary"]["status"] == "success"
+        state_path = context_dir / "scheduler-state.json"
+        assert state_path.exists()
+        state_content = state_path.read_text()
+        assert '"status": "success"' in state_content
+
+    def test_scheduler_tick_auto_executes_toml_steps(self, temp_skill_dir, tmp_path):
+        registry = SkillRegistry(temp_skill_dir)
+        registry.context.working_dir = tmp_path / "auto-session"
+        result = registry.scheduler_tick(now="2026-03-07T09:30:00Z")
+        assert "summary" in result
+        assert result["summary"]["status"] == "success"
+        state_path = registry.context.working_dir / "scheduler-state.json"
+        state_content = state_path.read_text()
+        assert "Executed 1 step(s)" in state_content
+
+    def test_scheduler_tick_step_failure_short_circuits(self, temp_skill_dir, tmp_path):
+        scheduler_path = temp_skill_dir / "SCHEDULER.toml"
+        scheduler_path.write_text(
+            """agent = "test-agent"
+version = 1
+
+[test-check]
+schedule = "every-run"
+task = [
+  { skill_name = "test-skill", function = "nonexistent", args = {} },
+  { skill_name = "test-skill", function = "greet", args = { name = "World" } }
+]
+"""
+        )
+        registry = SkillRegistry(temp_skill_dir)
+        registry.context.working_dir = tmp_path / "failure-session"
+        result = registry.scheduler_tick(now="2026-03-07T09:30:00Z")
+        assert "summary" in result
+        assert result["summary"]["status"] == "failure"
+        state_path = registry.context.working_dir / "scheduler-state.json"
+        state_content = state_path.read_text()
+        assert "Step 1 failed" in state_content
+
+    def test_scheduler_tick_chains_context_between_steps(self, temp_skill_dir, tmp_path):
+        scheduler_path = temp_skill_dir / "SCHEDULER.toml"
+        scheduler_path.write_text(
+            """agent = "test-agent"
+version = 1
+
+[test-check]
+schedule = "every-run"
+task = [
+  { skill_name = "test-skill", function = "greet", args = { name = "World" } },
+  { skill_name = "test-skill", function = "consume_result", args = { prefix = "Result: " } }
+]
+"""
+        )
+        registry = SkillRegistry(temp_skill_dir)
+        registry.context.working_dir = tmp_path / "chained-session"
+        result = registry.scheduler_tick(now="2026-03-07T09:30:00Z")
+        assert result["summary"]["status"] == "success"
+        state_path = registry.context.working_dir / "scheduler-state.json"
+        state = json.loads(state_path.read_text())
+        runs = state["tasks"]["test-check"]["recent_runs"]
+        step_outputs = runs[0]["observed_value"]["steps"]
+        assert step_outputs[1]["result"]["combined"] == "Result: Hello, World!"
 
 
 class TestSkill:
@@ -137,3 +233,12 @@ class TestGetTool:
         list_skills = get_tool(registry, "list_skills")
         result = list_skills()
         assert "example-skill" in result
+
+    def test_get_scheduler_tools(self, temp_skill_dir):
+        registry = SkillRegistry(temp_skill_dir)
+        load_scheduler = get_tool(registry, "load_scheduler")
+        scheduler_tick = get_tool(registry, "scheduler_tick")
+        parsed = load_scheduler()
+        assert parsed["agent"] == "test-agent"
+        tick = scheduler_tick(now="2026-03-07T09:30:00Z")
+        assert "summary" in tick
