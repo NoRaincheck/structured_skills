@@ -27,6 +27,22 @@ description: A test skill with scripts
 This skill has associated scripts.
 """
 
+VALID_SCHEDULER_CONTENT = """agent = "test-agent"
+version = 1
+
+[test-check]
+title = "Validate test signal"
+enabled = true
+priority = "normal"
+interval = "5m"
+cooldown = "10m"
+timeout = "1m"
+max_retries = 1
+state_key = "checks.test_signal"
+tags = ["test", "scheduler"]
+task = { skill_name = "test-skill", function = "greet", args = { name = "Scheduler" } }
+"""
+
 
 def script_content() -> str:
     return '''
@@ -37,6 +53,10 @@ def greet(name: str) -> str:
 def add(a: int, b: int) -> int:
     """Add two numbers."""
     return a + b
+
+def consume_result(result: str, prefix: str = "") -> dict:
+    """Use chained scheduler context result."""
+    return {"combined": f"{prefix}{result}"}
 '''
 
 
@@ -56,6 +76,7 @@ def temp_skill_dir():
         scripts_dir = test_skill / "scripts"
         scripts_dir.mkdir()
         (scripts_dir / "utils.py").write_text(script_content())
+        (skill_root / "SCHEDULER.toml").write_text(VALID_SCHEDULER_CONTENT)
 
         yield skill_root
 

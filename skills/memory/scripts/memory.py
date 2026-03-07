@@ -1,6 +1,4 @@
-"""
-memory.py dynamically updates SKILL.md
-"""
+"""Simple file-backed memory/history helpers for the memory skill."""
 
 import hashlib
 from datetime import datetime, timezone
@@ -13,45 +11,54 @@ MEMORY_WINDOW = 50
 HISTORY_WINDOW = 150
 WARNING_MESSAGE = "_comment:FULL PLEASE CONSOLIDATE"
 DEFAULT_GROUP = "notes"
+VALID_GROUPS = {"user", "context", "notes"}
+
+
+def _path(filename: str) -> Path:
+    file = Path(filename)
+    file.touch(exist_ok=True)
+    return file
 
 
 def _get_skill_md() -> Path:
-    """Get the SKILL.md path."""
-    file = Path("SKILL.md")
-    file.touch(exist_ok=True)
-    return file
+    return _path("SKILL.md")
 
 
 def _get_memory_txt() -> Path:
-    """Get the memory.txt path."""
-    file = Path("memory.txt")
-    file.touch(exist_ok=True)
-    return file
+    return _path("memory.txt")
 
 
 def _get_history_txt() -> Path:
-    """Get the history.txt path."""
-    file = Path("history.txt")
-    file.touch(exist_ok=True)
-    return file
+    return _path("history.txt")
 
 
-def _iso_date():
+def _iso_date() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _update_skill():
-    memory = f"{SKILL_MD_MEMORIES}\n\n" + _get_memory_txt().read_text()
-    with _get_skill_md().open("w") as f:
-        f.write(memory)
+def _read_lines(target: Path) -> list[str]:
+    return target.read_text().splitlines()
 
 
-def _compact(items: list[str], window: int) -> str:
+def _write_lines(target: Path, lines: list[str]) -> None:
+    target.write_text("\n".join(lines))
+
+
+def _normalize_group(group: Literal["user", "context", "notes"] | str | None) -> str:
+    if group is not None and group in VALID_GROUPS:
+        return group
+    return DEFAULT_GROUP
+
+
+def _update_skill() -> None:
+    _get_skill_md().write_text(f"{SKILL_MD_MEMORIES}\n\n{_get_memory_txt().read_text()}")
+
+
+def _compact(items: list[str], window: int) -> list[str]:
     if len(items) < window:
-        return "\n".join(items)
-    no_warning = [x for x in items if not x.startswith("_coment:")]
-    items = [WARNING_MESSAGE] + no_warning[:window]
-    return "\n".join(items)
+        return items
+    no_warning = [line for line in items if not line.startswith(("_comment:", "_coment:"))]
+    return [WARNING_MESSAGE, *no_warning[:window]]
 
 
 def _add_event(
@@ -59,21 +66,23 @@ def _add_event(
     window: int,
     text: str,
     group: Literal["user", "context", "notes"] | str | None = None,
-):
-    group = group or DEFAULT_GROUP
-    item = [f"[{group}] {text}"] + [s for s in target.read_text().split("\n")]
-    with target.open("w") as f:
-        f.write(_compact(item, window))
+) -> None:
+    event = f"[{_normalize_group(group)}] {text}"
+    items = [event, *_read_lines(target)]
+    _write_lines(target, _compact(items, window))
 
 
-def add_memory(text: str, group: Literal["user", "context", "notes"] | None = None):
+def add_memory(text: str, group: Literal["user", "context", "notes"] | None = None) -> None:
     _add_event(_get_memory_txt(), MEMORY_WINDOW, text, group)
     _update_skill()
 
 
-def add_history(text, group: Literal["user", "context", "notes"] | None = None):
-    event_time = _iso_date()
-    _add_event(_get_history_txt(), HISTORY_WINDOW, f"{event_time} {text}", group)
+def add_history(text: str, group: Literal["user", "context", "notes"] | None = None) -> None:
+    _add_event(_get_history_txt(), HISTORY_WINDOW, f"{_iso_date()} {text}", group)
+
+
+def _entry_content(line: str) -> str:
+    return line.rsplit("]", 1)[1].strip() if "]" in line else line.strip()
 
 
 def _search_event(
@@ -82,23 +91,24 @@ def _search_event(
     group: Literal["user", "context", "notes"] | str | None = "",
     top_k: int = 5,
 ) -> list[str]:
-    if group not in ["user", "context", "notes"]:
-        group = None
-    items = [x.strip() for x in target.read_text().split("\n") if "_comment" not in x]
-    if group is not None:
-        items = [x for x in items if f"[{group}]" in x]
+    valid_group = group if group in VALID_GROUPS else None
+    lines = [
+        line.strip() for line in _read_lines(target) if "_comment" not in line and line.strip()
+    ]
+    if valid_group is not None:
+        lines = [line for line in lines if line.startswith(f"[{valid_group}]")]
 
-    content = []
-    for item in items:
-        if "]" in item:
-            content.append(item.rsplit("]", 1)[1])
-        else:
-            content.append(item)
+    candidates = [(line, _entry_content(line)) for line in lines]
+    contents = [content for _, content in candidates]
+    matches = get_close_matches(query, contents, n=max(top_k * 2, top_k), cutoff=0)
 
-    matches = get_close_matches(query, content, cutoff=0)[:top_k]
-    results = []
+    results: list[str] = []
     for match in matches:
-        results.append(items[content.index(match)])
+        for original, content in candidates:
+            if content == match and original not in results:
+                results.append(original)
+                if len(results) == top_k:
+                    return results
     return results
 
 
@@ -107,8 +117,7 @@ def search_memory(
     group: Literal["user", "context", "notes"] | str | None = "",
     top_k: int = 5,
 ) -> str:
-    results = _search_event(_get_memory_txt(), query, group, top_k)
-    return "\n".join(results)
+    return "\n".join(_search_event(_get_memory_txt(), query, group, top_k))
 
 
 def search_history(
@@ -116,21 +125,16 @@ def search_history(
     group: Literal["user", "context", "notes"] | str | None = "",
     top_k: int = 5,
 ) -> str:
-    results = _search_event(_get_history_txt(), query, group, top_k)
-    return "\n".join(results)
+    return "\n".join(_search_event(_get_history_txt(), query, group, top_k))
 
 
 def _get_hash(target: Path) -> str:
-    with target.open("rb") as f:
-        hash_digest = hashlib.md5(f.read()).hexdigest()
-    hash_info = f"hash_info: {hash_digest[:2]}"
-    return hash_info
+    hash_digest = hashlib.md5(target.read_bytes()).hexdigest()
+    return f"hash_info: {hash_digest[:2]}"
 
 
 def _view_event(target: Path) -> str:
-    hash_info = _get_hash(target)
-    items = target.read_text().split("\n")
-    return f"{hash_info}\n" + "\n".join(items)
+    return "\n".join([_get_hash(target), *_read_lines(target)])
 
 
 def view_memory() -> str:
@@ -141,45 +145,49 @@ def view_history() -> str:
     return _view_event(_get_history_txt())
 
 
-def consolidate_memory(memories: str, hash: str):
-    hash_info = _get_hash(_get_memory_txt()).split(" ")[1]
-    if hash_info != hash.strip():
-        return "Hash do not match! No consolidation occurred. Check the hash by running view_memory"
-
-    items: list[str] = [item.strip() for item in memories.split("\n")]
-    cleaned_memories: list[str] = []
+def _normalize_consolidated_items(items: list[str], add_timestamp: bool) -> list[str]:
+    timestamp = _iso_date()
+    normalized: list[str] = []
     for item in items:
-        if item.strip().startswith("["):
-            cleaned_memories.append(item)
+        if not item:
+            continue
+        if item.startswith("["):
+            normalized.append(item)
+            continue
+        if add_timestamp:
+            normalized.append(f"[{DEFAULT_GROUP}] [{timestamp}] {item}")
         else:
-            cleaned_memories.append(f"[notes] {item}")
-    with _get_memory_txt().open("w") as f:
-        f.write("\n".join(cleaned_memories))
+            normalized.append(f"[{DEFAULT_GROUP}] {item}")
+    return normalized
+
+
+def consolidate_memory(memories: str, hash: str) -> str | None:
+    if _get_hash(_get_memory_txt()).split(" ")[1] != hash.strip():
+        return "Hash do not match! No consolidation occurred. Check the hash by running view_memory"
+    _write_lines(
+        _get_memory_txt(),
+        _normalize_consolidated_items([item.strip() for item in memories.split("\n")], False),
+    )
     _update_skill()
+    return None
 
 
-def consolidate_history(history: str, hash: str):
-    event_time = _iso_date()
-    hash_info = _get_hash(_get_history_txt()).split(" ")[1]
-    if hash_info != hash.strip():
+def consolidate_history(history: str, hash: str) -> str | None:
+    if _get_hash(_get_history_txt()).split(" ")[1] != hash.strip():
         return (
             "Hash do not match! No consolidation occurred. Check the hash by running view_history"
         )
-    items: list[str] = [item.strip() for item in history.split("\n")]
-    cleaned_history: list[str] = []
-    for item in items:
-        if item.strip().startswith("["):
-            cleaned_history.append(item)
-        else:
-            cleaned_history.append(f"[notes] [{event_time}] {item}")
-    with _get_history_txt().open("w") as f:
-        f.write("\n".join(cleaned_history))
+    _write_lines(
+        _get_history_txt(),
+        _normalize_consolidated_items([item.strip() for item in history.split("\n")], True),
+    )
+    return None
 
 
-def reset():
+def reset() -> None:
     _get_memory_txt().write_text("")
     _get_history_txt().write_text("")
-    _get_memory_txt().write_text("")
+    _update_skill()
 
 
 if __name__ == "__main__":
@@ -254,13 +262,9 @@ if __name__ == "__main__":
         add_history(args.text, args.group)
         print(f"Added history: {args.text}")
     elif args.command == "search_memory":
-        results = search_memory(args.query, args.group, args.top_k)
-        for result in results:
-            print(result)
+        print(search_memory(args.query, args.group, args.top_k))
     elif args.command == "search_history":
-        results = search_history(args.query, args.group, args.top_k)
-        for result in results:
-            print(result)
+        print(search_history(args.query, args.group, args.top_k))
     elif args.command == "view_memory":
         print(view_memory())
     elif args.command == "view_history":

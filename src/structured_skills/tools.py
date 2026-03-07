@@ -52,4 +52,23 @@ def create_skill_tools(registry: SkillRegistry) -> dict[str, tuple[Callable[...,
         f"Execute skill scripts or functions with optional arguments.{skills_info}",
     )
 
+    def load_scheduler() -> dict[str, Any]:
+        return registry.load_scheduler()
+
+    tools["load_scheduler"] = (
+        load_scheduler,
+        "Load and parse the global SCHEDULER.toml from the skills root.",
+    )
+
+    def scheduler_tick(
+        task_results: dict[str, dict[str, Any]] | None = None,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        return registry.scheduler_tick(task_results=task_results, now=now)
+
+    tools["scheduler_tick"] = (
+        scheduler_tick,
+        "Run one deterministic scheduler tick and persist scheduler-state.json.",
+    )
+
     return tools
