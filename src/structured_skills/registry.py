@@ -13,6 +13,29 @@ from typing import Any
 from structured_skills.ast_utils import execute_script as execute_script_impl
 from structured_skills.ast_utils import extract_function_info
 
+_JSON_TYPES = frozenset({"str", "int", "float", "bool", "None", "list", "dict"})
+_PROTECTED_FUNCTIONS = frozenset({"main"})
+
+
+def _is_json_type(annotation: str | None) -> bool:
+    """
+    Does a loose check on whether or not the input is a json type
+    Currently we don't handle the Optional[] keyword
+    """
+    if annotation is None:
+        return True
+    if annotation.startswith(("List[", "list[", "Dict[", "dict[")):
+        inner = annotation[annotation.index("[") + 1 : -1]
+        return all(_is_json_type(part) for part in re.split(r"[|,]", inner))
+
+    parts = re.split(r"[|,]", annotation)
+    for part in parts:
+        part = part.strip()
+        if part in _JSON_TYPES:
+            continue
+        return False
+    return True
+
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     """Parse a lightweight YAML-like frontmatter block."""
@@ -155,7 +178,23 @@ class SkillRegistry:
 
     def _list_functions(self, script_path: Path) -> list[str]:
         parsed = ast.parse(script_path.read_text(encoding="utf-8"))
-        return [n.name for n in parsed.body if isinstance(n, ast.FunctionDef)]
+        functions = []
+        for node in parsed.body:
+            if isinstance(node, ast.FunctionDef):
+                if node.name in _PROTECTED_FUNCTIONS:
+                    continue
+                annotations = [
+                    ast.unparse(arg.annotation) if arg.annotation else None
+                    for arg in node.args.args
+                ]
+                if (num_default_args := len(node.args.defaults)) > 0:
+                    annotations = annotations[:-num_default_args]
+
+                return_annotation = ast.unparse(node.returns) if node.returns else None
+                if all(_is_json_type(ann) for ann in annotations):
+                    if return_annotation is None or _is_json_type(return_annotation):
+                        functions.append(node.name)
+        return functions
 
     def _find_function_script(self, skill: Skill, function_name: str) -> Path | None:
         scripts_dir = skill.directory / "scripts"

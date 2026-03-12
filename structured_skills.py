@@ -6,6 +6,8 @@
 
 """Single-file `structured_skills` CLI, MCP server, and library helpers.
 
+**Note this script is automatically generated**
+
 This script is designed to run in uv script mode and mirrors the package
 implementation. It supports:
 
@@ -46,6 +48,9 @@ ToolName = Literal[
     "inspect",
     "execute",
 ]
+
+
+SECRET_VARIABLE = "__SKILL_TOOLS_VALUE"
 
 
 @contextmanager
@@ -129,6 +134,26 @@ def execute_script(
         raise FunctionNotFoundError(f"Function '{function_name}' not found after script execution")
     context[SECRET_VARIABLE] = context[function_name](**args)
     return context[SECRET_VARIABLE]
+
+
+_JSON_TYPES = frozenset({"str", "int", "float", "bool", "None", "list", "dict"})
+_PROTECTED_FUNCTIONS = frozenset({"main"})
+
+
+def _is_json_type(annotation: str | None) -> bool:
+    if annotation is None:
+        return True
+    if annotation.startswith(("List[", "list[", "Dict[", "dict[")):
+        inner = annotation[annotation.index("[") + 1 : -1]
+        return all(_is_json_type(part) for part in re.split(r"[|,]", inner))
+
+    parts = re.split(r"[|,]", annotation)
+    for part in parts:
+        part = part.strip()
+        if part in _JSON_TYPES:
+            continue
+        return False
+    return True
 
 
 def _parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -267,7 +292,23 @@ class SkillRegistry:
 
     def _list_functions(self, script_path: Path) -> list[str]:
         parsed = ast.parse(script_path.read_text(encoding="utf-8"))
-        return [n.name for n in parsed.body if isinstance(n, ast.FunctionDef)]
+        functions = []
+        for node in parsed.body:
+            if isinstance(node, ast.FunctionDef):
+                if node.name in _PROTECTED_FUNCTIONS:
+                    continue
+                annotations = [
+                    ast.unparse(arg.annotation) if arg.annotation else None
+                    for arg in node.args.args
+                ]
+                if (num_default_args := len(node.args.defaults)) > 0:
+                    annotations = annotations[:-num_default_args]
+
+                return_annotation = ast.unparse(node.returns) if node.returns else None
+                if all(_is_json_type(ann) for ann in annotations):
+                    if return_annotation is None or _is_json_type(return_annotation):
+                        functions.append(node.name)
+        return functions
 
     def _find_function_script(self, skill: Skill, function_name: str) -> Path | None:
         scripts_dir = skill.directory / "scripts"
@@ -301,8 +342,7 @@ class SkillRegistry:
         )
         if result.returncode != 0:
             raise RuntimeError(
-                f"Script execution failed ({script_path.name}): "
-                f"{result.stderr.strip() or result.stdout.strip()}"
+                f"Script execution failed ({script_path.name}): {result.stderr.strip() or result.stdout.strip()}"
             )
         return result.stdout
 
@@ -357,14 +397,12 @@ class SkillRegistry:
             if len(matching) > 1:
                 raise ValueError(
                     f"[execute] Ambiguous non-CLI script target '{script_path.name}'. "
-                    f"Matching functions: {matching}. "
-                    "Call execute with an explicit function name."
+                    f"Matching functions: {matching}. Call execute with an explicit function name."
                 )
 
         raise ValueError(
             f"[execute] Ambiguous non-CLI script target '{script_path.name}'. "
-            f"Available functions: {candidates}. "
-            "Call execute with an explicit function name."
+            f"Available functions: {candidates}. Call execute with an explicit function name."
         )
 
     def execute(self, skill_name: str, target: str, args: dict[str, Any] | None = None) -> Any:
@@ -420,6 +458,13 @@ class SkillRegistry:
         return self._execute_function(
             function_script, function_name=target, args=args, skill_dir=skill.directory
         )
+
+
+ToolName = Literal[
+    "search",
+    "inspect",
+    "execute",
+]
 
 
 class SkillToolsBuilder:
@@ -520,16 +565,8 @@ def get_tool(registry: SkillRegistry, tool_name: ToolName) -> Callable[..., Any]
 
 
 def create_mcp_server(skill_root_dir: Path, server_name: str = "structured_skills") -> Any:
-    """Create a FastMCP server exposing skill tool operations."""
-    try:
-        fastmcp_module = __import__("mcp.server.fastmcp", fromlist=["FastMCP"])
-        fastmcp_class = getattr(fastmcp_module, "FastMCP")
-    except (ModuleNotFoundError, ImportError, AttributeError) as exc:
-        raise RuntimeError(
-            "FastMCP is required for MCP server mode but is not installed or importable. "
-            "Install it with `uv add fastmcp` for package mode, or run this file via "
-            "`uv run structured_skills.py ...` so script dependencies are resolved."
-        ) from exc
+    fastmcp_module = __import__("mcp.server.fastmcp", fromlist=["FastMCP"])
+    fastmcp_class = getattr(fastmcp_module, "FastMCP")
 
     mcp = fastmcp_class(server_name)
     registry = SkillRegistry(skill_root_dir)
@@ -608,10 +645,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     inspect_cmd.add_argument("resource_name", nargs="?", default=None)
     inspect_cmd.add_argument("--include-body", action="store_true")
 
-    execute_cmd = sub.add_parser("execute")
-    execute_cmd.add_argument("skill_name")
-    execute_cmd.add_argument("target")
-    execute_cmd.add_argument("--args", default="{}", help='JSON object, e.g. {"name":"World"}')
+    execute = sub.add_parser("execute")
+    execute.add_argument("skill_name")
+    execute.add_argument("target")
+    execute.add_argument("--args", default="{}", help='JSON object, e.g. {"name":"World"}')
 
     mcp = sub.add_parser("mcp")
     mcp.add_argument("--server-name", default="structured_skills")
