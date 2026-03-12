@@ -1,104 +1,116 @@
-# structured_skills
+# Skill Tools
 
-[![PyPI version](https://badge.fury.io/py/structured_skills.svg)](https://badge.fury.io/py/structured_skills) [![CI](https://github.com/NoRaincheck/structured_skills/actions/workflows/ci.yml/badge.svg)](https://github.com/NoRaincheck/structured_skills/actions/workflows/ci.yml)
-
-Structured Skills for Agents - launch MCP servers from skill directories
-
-## No LLM Required
-
-**The goal of this library is that it works without any LLM.** Skills are explicitly defined with scripts and resources you control. Unlike AI agents that can execute arbitrary commands, structured_skills only runs what you've explicitly defined in your skill directories. Everything is gated by the scripts you write - no surprises, no unbounded execution.
+`skill_tools` discovers SKILL.md-based skills, inspects runnable targets, reads skill
+resources, and executes deterministic Python scripts/functions inside each skill.
 
 ## What It Supports
 
-- MCP server for skill discovery and execution
-- Direct CLI for listing/loading/running skills
-- Scheduler definitions via `SCHEDULER.toml`
-- Cron-style human schedules (for example `monday 9am`, `daily 9am`, `weekdays 09:30`)
-- Interval schedules via `interval` (for example `5m`, `every 15m`, `1h`)
-- Sequential task steps (`task` as one item or an ordered list)
-- Per-session state isolation using `--working-dir`
+- Discover skills from a root directory containing skill folders with `SKILL.md`.
+- Search and inspect skills and script/function targets.
+- Read files under a skill directory with path-traversal protection.
+- Execute:
+  - script paths under `scripts/` (for example `echo.py`), or
+  - function targets by name (for example `add`).
 
-## Usage
+## Single-File Script Mode (uv)
 
-Quick usage to launch MCP server:
+The repository includes `skill_tools.py` as a single-file uv script:
 
-```sh
-structured_skills run path/to/root/skills --working-dir /path/to/session-or-channel
+```bash
+uv run skill_tools.py <skills_dir> search [query] --limit 10
+uv run skill_tools.py <skills_dir> inspect <skill_name> [resource_name] [--include-body]
+uv run skill_tools.py <skills_dir> execute <skill_name> <target> --args '{"a":2,"b":3}'
 ```
 
-To test via CLI:
+Example:
 
-```sh
-structured_skills cli list_skills /path/to/root/skills
-structured_skills cli load_skill /path/to/root/skills <skill_name>
-structured_skills cli read_skill_resource /path/to/root/skills <skill_name> <resource_name>
-# use explicit per-session/channel working directories
-structured_skills cli --working-dir /path/to/session-or-channel run_skill_script /path/to/root/skills <skill_name> <function_name>
-structured_skills cli load_scheduler /path/to/root/skills
-structured_skills cli scheduler_tick /path/to/root/skills
+```bash
+uv run skill_tools.py tests/fixtures/skills search
+uv run skill_tools.py tests/fixtures/skills inspect echo-skill
+uv run skill_tools.py tests/fixtures/skills inspect echo-skill --include-body
+uv run skill_tools.py tests/fixtures/skills inspect math-skill resources/README.txt
+uv run skill_tools.py tests/fixtures/skills execute math-skill add --args '{"a":2,"b":3}'
+uv run skill_tools.py tests/fixtures/skills mcp --server-name skill_tools
 ```
 
-Programmatically:
+## Package Mode
 
-```py
-from structured_skills import SkillRegistry
+Install/run via project tooling:
 
-registry = SkillRegistry("/path/to/skills")
-
-# List all available skills
-registry.list_skills()
-
-# Load full skill instructions
-registry.load_skill(skill_name)
-
-# Read a resource (file, script, or function info)
-registry.read_skill_resource(skill_name, resource_name, args)
-
-# Execute a skill function
-registry.run_skill(skill_name, function_name, args)
-
-# Scheduler
-registry.load_scheduler()
-registry.scheduler_tick()
+```bash
+uv run pytest
+uv run skill-tools tests/fixtures/skills search
+uv run skill-tools tests/fixtures/skills mcp --server-name skill_tools
 ```
 
-## `SCHEDULER.toml`
+The console script entrypoint is `skill-tools` and maps to `skill_tools.main:main`.
 
-`SCHEDULER.toml` lives at the root of your skills directory.
+## Heartbeat Daemon (Standalone)
+
+The repository also includes a standalone stdlib-only scheduler at
+`heartbeat_daemon.py`.
+
+Run it with:
+
+```bash
+uv run heartbeat_daemon.py scheduler.toml
+```
+
+`scheduler.toml` uses a flat root with named task tables:
 
 ```toml
-agent = "ops-agent"
 version = 1
 
-[daily-health]
-interval = "5m" # or use schedule = "monday 9am"
-active_schedule = "weekdays between 09:00-17:00"
-task = [
-  { skill_name = "memory", function = "store", args = { key = "health", value = "ok" } },
-  { skill_name = "memory", function = "get", args = { key = "health" } }
-]
+[daemon]
+heartbeat = "1m"
+timezone = "UTC"
+state_file = "./scheduler-state.json"
+shell = "/bin/sh"
+
+[tasks.poll-inbox]
+run = "bin/poll-inbox"
+every = "5m"
+
+[tasks.daily-summary]
+run = "bin/daily-summary"
+at = "09:00"
+
+[tasks.backfill-march]
+run = "bin/backfill --month 2026-03"
+at = "2026-03-15T04:00:00Z"
 ```
 
-Notes:
+Each task must define `run` and exactly one schedule mode:
 
-- Use exactly one of `interval` or `schedule` per task.
-- `task` can be a single table or an array of tables.
-- Without a daemon, `scheduler_tick` checks if a task already ran since its previous scheduled occurrence. If not, it runs immediately.
+- `every = "<duration>"` for recurring runs
+- `at = "HH:MM"` or `at = "HH:MM:SS"` for daily runs
+- `at = "<ISO timestamp>"` for one-off runs
 
-Persistence:
+Optional task keys currently supported:
 
-- `load_scheduler` only reads/parses `SCHEDULER.toml` and does not write state.
-- Scheduler run state is stored in `scheduler-state.json`.
-- On read, `scheduler_tick` prefers `<working-dir>/scheduler-state.json` and falls back to `<skill-root>/scheduler-state.json` if present.
-- On write, `scheduler_tick` always persists to `<working-dir>/scheduler-state.json`.
+- `enabled = true`
+- `timeout = "10m"`
+- `start_at = "..."` (for `every` tasks)
 
-For OpenClaw-aligned persistence, pass a session or channel directory via `--working-dir` (for example, `~/.openclaw/agents/<agentId>/sessions/<session_key>`). Skill state is stored under `<working-dir>/<skill-name>`.
+## MCP Server Mode (FastMCP)
 
-## Validation
+`skill_tools` can run as an MCP server exposing three tools: `search`, `inspect`, and
+`execute`.
 
-Perform checks with suggested fixes:
+- Single-file script mode:
+  - `uv run skill_tools.py <skills_dir> mcp --server-name skill_tools`
+- Package mode:
+  - `uv run skill-tools <skills_dir> mcp --server-name skill_tools`
 
-```sh
-structured_skills check path/to/root/skills
-structured_skills check path/to/root/skills --fix  # try to fix observed issues
+## Python API
+
+Primary imports:
+
+```python
+from pathlib import Path
+from skill_tools import SkillRegistry, SkillToolsBuilder
+
+registry = SkillRegistry(Path("tests/fixtures/skills"))
+tools = SkillToolsBuilder(registry).build_callable_tools()
+result = tools["execute"][0]("math-skill", "add", {"a": 2, "b": 3})
 ```

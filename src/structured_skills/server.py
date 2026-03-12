@@ -1,59 +1,43 @@
+"""FastMCP server wiring for structured_skills."""
+
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Any
 
-from mcp.server.fastmcp import FastMCP
-
-from structured_skills.skill_registry import SkillContext, SkillRegistry
-from structured_skills.tools import create_skill_tools
+from structured_skills.builder import SkillToolsBuilder
+from structured_skills.registry import SkillRegistry
 
 
-def create_mcp_server(
-    skill_root_dir: Path,
-    server_name: str = "structured_skills",
-    exclude_skills: list[str] = [],
-    include_skills: list[str] | None = None,
-    session_name: str | None = None,
-    working_dir: Path | None = None,
-) -> FastMCP:
-    mcp = FastMCP(server_name)
-    context = SkillContext.create(session_name=session_name, working_dir=working_dir)
-    registry = SkillRegistry(
-        skill_root_dir,
-        exclude_skills=exclude_skills,
-        include_skills=include_skills,
-        context=context,
-    )
-    tools = create_skill_tools(registry)
+def create_mcp_server(skill_root_dir: Path, server_name: str = "structured_skills") -> Any:
+    """Create a FastMCP server exposing skill tool operations."""
+    fastmcp_module = __import__("mcp.server.fastmcp", fromlist=["FastMCP"])
+    fastmcp_class = getattr(fastmcp_module, "FastMCP")
 
-    list_skills_func, list_skills_desc = tools["list_skills"]
-    load_skill_func, load_skill_desc = tools["load_skill"]
-    read_resource_func, read_resource_desc = tools["read_skill_resource"]
-    run_skill_func, run_skill_desc = tools["run_skill"]
-    load_scheduler_func, load_scheduler_desc = tools["load_scheduler"]
-    scheduler_tick_func, scheduler_tick_desc = tools["scheduler_tick"]
+    mcp = fastmcp_class(server_name)
+    registry = SkillRegistry(skill_root_dir)
+    tools = SkillToolsBuilder(registry).build_callable_tools()
 
-    @mcp.tool(description=list_skills_desc)
-    def list_skills() -> dict[str, str]:
-        return list_skills_func()
+    search_func, search_desc = tools["search"]
+    inspect_func, inspect_desc = tools["inspect"]
+    execute_func, execute_desc = tools["execute"]
 
-    @mcp.tool(description=load_skill_desc)
-    def load_skill(skill_name: str) -> str:
-        return load_skill_func(skill_name)
+    @mcp.tool(description=search_desc)
+    def search(query: str = "", limit: int = 10) -> dict[str, str]:
+        return search_func(query=query, limit=limit)
 
-    @mcp.tool(description=read_resource_desc)
-    def read_skill_resource(skill_name: str, resource_name: str, args: dict | None = None) -> str:
-        result = read_resource_func(skill_name, resource_name, args)
-        return str(result) if not isinstance(result, str) else result
+    @mcp.tool(description=inspect_desc)
+    def inspect(
+        skill_name: str, resource_name: str | None = None, include_body: bool = False
+    ) -> dict[str, Any] | str:
+        return inspect_func(
+            skill_name=skill_name,
+            resource_name=resource_name,
+            include_body=include_body,
+        )
 
-    @mcp.tool(description=run_skill_desc)
-    def run_skill(skill_name: str, function_name: str, args: dict | None = None) -> str:
-        return run_skill_func(skill_name, function_name, args)
-
-    @mcp.tool(description=load_scheduler_desc)
-    def load_scheduler() -> dict:
-        return load_scheduler_func()
-
-    @mcp.tool(description=scheduler_tick_desc)
-    def scheduler_tick(task_results: dict | None = None, now: str | None = None) -> dict:
-        return scheduler_tick_func(task_results, now)
+    @mcp.tool(description=execute_desc)
+    def execute(skill_name: str, target: str, args: dict[str, Any] | None = None) -> Any:
+        return execute_func(skill_name=skill_name, target=target, args=args)
 
     return mcp
