@@ -1,4 +1,21 @@
 repos:
+  - repo: local
+    hooks:
+      - id: regenerate_single_file
+        name: regenerate_single_file
+        entry: uv run scripts/generate_single_file.py
+        language: system
+        pass_filenames: false
+      - id: ty
+        name: ty check
+        entry: uv run ty check . --ignore unresolved-import
+        language: python
+        pass_filenames: false
+      - id: deno-fmt
+        name: deno fmt
+        entry: uv run deno fmt
+        pass_filenames: false
+        language: system
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.15.2

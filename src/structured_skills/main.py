@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-from structured_skills.builder import SkillToolsBuilder
 from structured_skills.registry import SkillRegistry
 from structured_skills.server import create_mcp_server
 
@@ -83,19 +82,18 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     registry = SkillRegistry(Path(args.skills_dir))
-    tools = SkillToolsBuilder(registry).build_callable_tools()
 
     if args.command == "search":
         print(
             json.dumps(
-                tools["search"][0](args.query, args.limit),
+                registry.search(args.query, args.limit),
                 ensure_ascii=True,
                 indent=2,
             )
         )
         return 0
     if args.command == "inspect":
-        output = tools["inspect"][0](args.skill_name, args.resource_name, args.include_body)
+        output = registry.inspect(args.skill_name, args.resource_name, args.include_body)
         if isinstance(output, (dict, list)):
             print(json.dumps(output, ensure_ascii=True, indent=2))
         else:
@@ -107,7 +105,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("--args must decode to a JSON object")
         passthrough_args = _parse_execute_passthrough(args.execute_passthrough)
         parsed_args.update(passthrough_args)
-        output = tools["execute"][0](args.skill_name, args.target, parsed_args)
+        output = registry.execute(args.skill_name, args.target, parsed_args)
         if isinstance(output, (dict, list)):
             print(json.dumps(output, ensure_ascii=True, indent=2))
         else:
