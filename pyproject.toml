@@ -7,8 +7,6 @@ authors = []
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp>=3.0.0",
-    "libcst>=1.8.6",
-    "pyyaml>=6.0.3",
 ]
 
 [project.optional-dependencies]
@@ -16,7 +14,7 @@ all = ["ruff>=0.15.2"]
 cli = ["ruff>=0.15.2"]
 
 [project.scripts]
-structured_skills = "structured_skills:main"
+structured_skills = "structured_skills.main:main"
 
 [build-system]
 requires = ["uv_build>=0.9.18,<0.10.0"]
@@ -31,6 +29,10 @@ dev = [
     "ruff>=0.15.2",
     "ty>=0.0.17",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
 
 [tool.coverage.run]
 omit = [

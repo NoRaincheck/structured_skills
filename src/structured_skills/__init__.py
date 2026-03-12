@@ -1,22 +1,13 @@
-from structured_skills.cli import main
-from structured_skills.skill_registry import Skill, SkillContext, SkillRegistry, get_tool
-from structured_skills.validator import (
-    extract_imports,
-    find_skill_md,
-    fix_dependencies,
-    parse_frontmatter,
-    validate,
-)
+"""Public API for structured_skills."""
+
+from structured_skills.builder import SkillToolsBuilder, create_structured_skills
+from structured_skills.registry import Skill, SkillRegistry
+from structured_skills.server import create_mcp_server
 
 __all__ = [
-    "main",
-    "SkillRegistry",
     "Skill",
-    "SkillContext",
-    "get_tool",
-    "validate",
-    "find_skill_md",
-    "parse_frontmatter",
-    "extract_imports",
-    "fix_dependencies",
+    "SkillRegistry",
+    "SkillToolsBuilder",
+    "create_structured_skills",
+    "create_mcp_server",
 ]
