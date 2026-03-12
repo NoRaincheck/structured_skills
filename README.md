@@ -1,7 +1,12 @@
-# Skill Tools
+# structured_skills
 
-`skill_tools` discovers SKILL.md-based skills, inspects runnable targets, reads skill
-resources, and executes deterministic Python scripts/functions inside each skill.
+[![PyPI version](https://badge.fury.io/py/structured_skills.svg)](https://badge.fury.io/py/structured_skills) [![CI](https://github.com/NoRaincheck/structured_skills/actions/workflows/ci.yml/badge.svg)](https://github.com/NoRaincheck/structured_skills/actions/workflows/ci.yml)
+
+Structured Skills for Agents - launch MCP servers from skill directories
+
+## No LLM Required
+
+**The goal of this library is that it works without any LLM.** Skills are explicitly defined with scripts and resources you control. Unlike AI agents that can execute arbitrary commands, structured_skills only runs what you've explicitly defined in your skill directories. Everything is gated by the scripts you write - no surprises, no unbounded execution.
 
 ## What It Supports
 
@@ -14,23 +19,23 @@ resources, and executes deterministic Python scripts/functions inside each skill
 
 ## Single-File Script Mode (uv)
 
-The repository includes `skill_tools.py` as a single-file uv script:
+The repository includes `structured_skills.py` as a single-file uv script:
 
 ```bash
-uv run skill_tools.py <skills_dir> search [query] --limit 10
-uv run skill_tools.py <skills_dir> inspect <skill_name> [resource_name] [--include-body]
-uv run skill_tools.py <skills_dir> execute <skill_name> <target> --args '{"a":2,"b":3}'
+uv run structured_skills.py <skills_dir> search [query] --limit 10
+uv run structured_skills.py <skills_dir> inspect <skill_name> [resource_name] [--include-body]
+uv run structured_skills.py <skills_dir> execute <skill_name> <target> --args '{"a":2,"b":3}'
 ```
 
 Example:
 
 ```bash
-uv run skill_tools.py tests/fixtures/skills search
-uv run skill_tools.py tests/fixtures/skills inspect echo-skill
-uv run skill_tools.py tests/fixtures/skills inspect echo-skill --include-body
-uv run skill_tools.py tests/fixtures/skills inspect math-skill resources/README.txt
-uv run skill_tools.py tests/fixtures/skills execute math-skill add --args '{"a":2,"b":3}'
-uv run skill_tools.py tests/fixtures/skills mcp --server-name skill_tools
+uv run structured_skills.py tests/fixtures/skills search
+uv run structured_skills.py tests/fixtures/skills inspect echo-skill
+uv run structured_skills.py tests/fixtures/skills inspect echo-skill --include-body
+uv run structured_skills.py tests/fixtures/skills inspect math-skill resources/README.txt
+uv run structured_skills.py tests/fixtures/skills execute math-skill add --args '{"a":2,"b":3}'
+uv run structured_skills.py tests/fixtures/skills mcp --server-name structured_skills
 ```
 
 ## Package Mode
@@ -40,10 +45,10 @@ Install/run via project tooling:
 ```bash
 uv run pytest
 uv run skill-tools tests/fixtures/skills search
-uv run skill-tools tests/fixtures/skills mcp --server-name skill_tools
+uv run skill-tools tests/fixtures/skills mcp --server-name structured_skills
 ```
 
-The console script entrypoint is `skill-tools` and maps to `skill_tools.main:main`.
+The console script entrypoint is `skill-tools` and maps to `structured_skills.main:main`.
 
 ## Heartbeat Daemon (Standalone)
 
@@ -94,13 +99,13 @@ Optional task keys currently supported:
 
 ## MCP Server Mode (FastMCP)
 
-`skill_tools` can run as an MCP server exposing three tools: `search`, `inspect`, and
+`structured_skills` can run as an MCP server exposing three tools: `search`, `inspect`, and
 `execute`.
 
 - Single-file script mode:
-  - `uv run skill_tools.py <skills_dir> mcp --server-name skill_tools`
+  - `uv run structured_skills.py <skills_dir> mcp --server-name structured_skills`
 - Package mode:
-  - `uv run skill-tools <skills_dir> mcp --server-name skill_tools`
+  - `uv run skill-tools <skills_dir> mcp --server-name structured_skills`
 
 ## Python API
 
@@ -108,7 +113,7 @@ Primary imports:
 
 ```python
 from pathlib import Path
-from skill_tools import SkillRegistry, SkillToolsBuilder
+from structured_skills import SkillRegistry, SkillToolsBuilder
 
 registry = SkillRegistry(Path("tests/fixtures/skills"))
 tools = SkillToolsBuilder(registry).build_callable_tools()

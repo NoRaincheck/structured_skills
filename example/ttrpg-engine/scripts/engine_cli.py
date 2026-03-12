@@ -201,7 +201,9 @@ def choose(rng: random.Random, items: list[str]) -> str:
     return items[rng.randrange(len(items))]
 
 
-def yesno_oracle(likelihood: str, rng: random.Random) -> dict[str, int | str]:
+def yesno_oracle(
+    likelihood: str = "even", rng: random.Random | None = None
+) -> dict[str, int | str]:
     thresholds = {"likely": 3, "even": 4, "unlikely": 5}
     if likelihood not in thresholds:
         raise ValueError(f"Invalid likelihood: {likelihood}")
@@ -245,7 +247,7 @@ def expand_keywords(base: list[str], suffixes: list[str], count: int) -> list[st
     return expanded[:count]
 
 
-def focus_keywords(name: str, count: int) -> list[str]:
+def focus_keywords(name: str, count: int = 1) -> list[str]:
     if name == "action":
         return expand_keywords(BASE_ACTION, ACTION_SUFFIXES, count)
     if name == "detail":
@@ -374,7 +376,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_keywords.add_argument(
         "--count",
         type=int,
-        default=100,
+        default=1,
         help="Number of keywords to output (max: 100)",
     )
     p_keywords.add_argument("--seed", type=int, default=None, help="Random seed")
