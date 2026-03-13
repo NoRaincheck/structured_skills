@@ -265,12 +265,12 @@ class SkillRegistry:
         skill = self._require_skill(skill_name, "inspect")
 
         if resource_name is not None:
+            # tries to find a file, if found returns contents of filem, otherwise get function info
             if resource_name == "SKILL.md":
                 return skill.skill_md_path.read_text(encoding="utf-8")
             candidate = self._resolve_resource_path(skill.directory, resource_name)
-            if not candidate.exists() or not candidate.is_file():
-                raise FileNotFoundError(f"Resource not found: {resource_name}")
-            return candidate.read_text(encoding="utf-8")
+            if candidate.exists() and candidate.is_file():
+                return candidate.read_text(encoding="utf-8")
 
         if include_body:
             return skill.skill_md_body
@@ -282,6 +282,9 @@ class SkillRegistry:
             for script in sorted(scripts_dir.glob("*.py")):
                 scripts.append(str(script.relative_to(skill.directory)))
                 functions[script.name] = self._list_functions(script)
+                if resource_name is not None and resource_name in functions[script.name]:
+                    return self._get_function_info(script, resource_name)
+
         return {
             "name": skill.name,
             "description": skill.description,
@@ -289,6 +292,42 @@ class SkillRegistry:
             "scripts": scripts,
             "functions": functions,
         }
+
+    def _get_function_info(self, script_path: Path, function_name: str):
+        parsed = ast.parse(script_path.read_text(encoding="utf-8"))
+        result = {}
+        for node in parsed.body:
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                result["name"] = function_name
+                args = [arg.arg for arg in node.args.args]
+                defaults = node.args.defaults
+                default_offset = len(args) - len(defaults)
+                arg_parts = []
+                annotations = [
+                    ast.unparse(arg.annotation) if arg.annotation else None
+                    for arg in node.args.args
+                ]
+                for i, (arg, annotation) in enumerate(zip(args, annotations)):
+                    if annotation is not None:
+                        arg_str = f"{arg}:{annotation}"
+                    else:
+                        arg_str = arg
+                    if i >= default_offset:
+                        default_val = ast.unparse(defaults[i - default_offset])
+                        arg_parts.append(f"{arg_str}={default_val}")
+                    else:
+                        arg_parts.append(arg_str)
+
+                result["signature"] = f"{function_name}({', '.join(arg_parts)})"
+
+                returns = ast.unparse(node.returns) if node.returns else None
+                docstring = ast.get_docstring(node)
+
+                if returns is not None:
+                    result["return"] = returns
+                if docstring is not None and docstring.strip():
+                    result["docstring"] = docstring
+                return result
 
     def _list_functions(self, script_path: Path) -> list[str]:
         parsed = ast.parse(script_path.read_text(encoding="utf-8"))
