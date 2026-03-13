@@ -58,3 +58,25 @@ def test_execute_non_cli_ambiguous_script_raises() -> None:
     registry = SkillRegistry(FIXTURES)
     with pytest.raises(ValueError, match="Ambiguous non-CLI script target"):
         registry.execute("math-skill", "ambiguous_ops.py", {"a": 2, "b": 3})
+
+
+def test_inspect_function_by_name_returns_info() -> None:
+    registry = SkillRegistry(FIXTURES)
+    info = registry.inspect("math-skill", resource_name="add")
+    assert isinstance(info, dict)
+    assert info["name"] == "add"
+    assert "signature" in info
+    assert "return" in info
+    assert info["return"] == "int"
+
+
+def test_inspect_function_with_docstring() -> None:
+    registry = SkillRegistry(FIXTURES)
+    info = registry.inspect("math-skill", resource_name="add")
+    assert "docstring" not in info
+
+
+def test_inspect_resource_file_still_works() -> None:
+    registry = SkillRegistry(FIXTURES)
+    content = registry.inspect("math-skill", resource_name="resources/README.txt")
+    assert "deterministic resource" in content

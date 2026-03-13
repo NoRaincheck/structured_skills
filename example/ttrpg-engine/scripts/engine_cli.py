@@ -192,6 +192,7 @@ TOPIC_SUFFIXES = [
 
 
 def d6(rng: random.Random | None = None) -> int:
+    """Returns a number between 1-6 inclusive."""
     if rng is None:
         rng = random.Random()
     return rng.randint(1, 6)
