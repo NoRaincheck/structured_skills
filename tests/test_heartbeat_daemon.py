@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
-MODULE_PATH = Path(__file__).resolve().parent.parent / "heartbeat_daemon.py"
-SPEC = importlib.util.spec_from_file_location("heartbeat_daemon", MODULE_PATH)
-if SPEC is None or SPEC.loader is None:  # pragma: no cover
-    raise RuntimeError("Unable to load heartbeat_daemon module")
-hd = importlib.util.module_from_spec(SPEC)
-sys.modules["heartbeat_daemon"] = hd
-SPEC.loader.exec_module(hd)
+import structured_skills.heartbeat_daemon as hd
 
 
 def _write_config(tmp_path: Path, body: str) -> Path:

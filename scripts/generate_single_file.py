@@ -6,12 +6,15 @@ For internal use only as part of managing the repo scripts
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 SRC_DIR = Path("src/structured_skills")
 OUTPUT_FILE = Path("structured_skills.py")
+HEARTBEAT_FILE = SRC_DIR.joinpath("heartbeat_daemon.py")
+OUTPUT_HEARTBEAT_FILE = Path("heartbeat_daemon.py")
 
 HEADER = '''#!/usr/bin/env -S uv run --script
 # /// script
@@ -186,6 +189,9 @@ def generate() -> str:
     # run uv ruff format and uv ruff check on the output
     subprocess.run(["uv", "run", "ruff", "format", OUTPUT_FILE])
     subprocess.run(["uv", "run", "ruff", "check", OUTPUT_FILE, "--fix"])
+
+    # finally copy the hartbeat_daemon.py
+    shutil.copy(HEARTBEAT_FILE, OUTPUT_HEARTBEAT_FILE)
     return result
 
 
