@@ -107,6 +107,34 @@ Optional task keys currently supported:
 - Package mode:
   - `uv run skill-tools <skills_dir> mcp --server-name structured_skills`
 
+## Skill Proxy (Python API)
+
+The registry provides a `skill()` method that returns a proxy object, allowing you to call skill functions and scripts as if they were methods on an object:
+
+```python
+from pathlib import Path
+from structured_skills import SkillRegistry
+
+registry = SkillRegistry(Path("skills"))
+
+# Call a function directly
+proxy = registry.skill("math-skill")
+result = proxy.add(a=2, b=3)  # Returns 5
+
+# Call a script
+result = proxy.math_ops(a=2, b=3)  # Returns 5
+
+# Works with positional args too
+result = proxy.add(2, 3)  # Returns 5
+```
+
+The proxy:
+
+- Discovers functions and scripts in the skill's `scripts/` directory
+- Lets you call them as Python methods with keyword or positional arguments
+- Raises `AttributeError` if the function/script doesn't exist
+- Raises `TypeError` for duplicate argument values
+
 ## Python API
 
 Primary imports:

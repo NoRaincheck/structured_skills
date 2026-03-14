@@ -1,1 +1,3 @@
 - [Home](/)
+- [CLI Reference](/cli)
+- [Python API](/api)
