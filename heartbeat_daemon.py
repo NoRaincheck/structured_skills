@@ -41,6 +41,7 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import re
 import sqlite3
@@ -51,6 +52,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+
+_running_tasks: set[str] = set()
 
 DURATION_RE = re.compile(r"(\d+)([smhd])")
 TIME_RE = re.compile(r"^\d{2}:\d{2}(:\d{2})?$")
@@ -396,6 +399,47 @@ def run_task(task: Task, daemon: DaemonConfig, task_state: dict[str, Any], now: 
             task_state["completed"] = True
 
 
+async def run_task_async(
+    task: Task, daemon: DaemonConfig, task_state: dict[str, Any], now: datetime
+) -> bool:
+    if task.name in _running_tasks:
+        return False
+    _running_tasks.add(task.name)
+    try:
+        task_state["last_started"] = dt_to_str(now)
+        try:
+            proc = await asyncio.create_subprocess_shell(
+                task.run,
+                shell=True,
+                executable=daemon.shell,
+            )
+            if task.timeout:
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=task.timeout.total_seconds())
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.wait()
+                    raise subprocess.TimeoutExpired(task.run, task.timeout.total_seconds())
+            else:
+                await proc.wait()
+            finished = now_for_mode(daemon.timezone_mode)
+            task_state["last_finished"] = dt_to_str(finished)
+            task_state["last_exit_code"] = proc.returncode
+            if proc.returncode == 0:
+                task_state["last_success"] = dt_to_str(finished)
+            if task.at_once is not None:
+                task_state["completed"] = True
+        except subprocess.TimeoutExpired:
+            finished = now_for_mode(daemon.timezone_mode)
+            task_state["last_finished"] = dt_to_str(finished)
+            task_state["last_exit_code"] = "timeout"
+            if task.at_once is not None:
+                task_state["completed"] = True
+        return True
+    finally:
+        _running_tasks.discard(task.name)
+
+
 def run_tick(config_file: Path) -> None:
     daemon, tasks = load_config(config_file)
     state = load_state(daemon.state_file)
@@ -410,12 +454,40 @@ def run_tick(config_file: Path) -> None:
             save_state(daemon.state_file, state)
 
 
+async def run_tick_async(config_file: Path) -> None:
+    daemon, tasks = load_config(config_file)
+    state = load_state(daemon.state_file)
+    now = now_for_mode(daemon.timezone_mode)
+
+    due_tasks = []
+    for task in tasks:
+        task_state = state.setdefault(task.name, {})
+        if is_due(task, task_state, now, daemon.timezone_mode):
+            mark_scheduled(task_state, task, now, daemon.timezone_mode)
+            due_tasks.append((task, task_state))
+
+    if due_tasks:
+        save_state(daemon.state_file, state)
+        await asyncio.gather(
+            *(run_task_async(task, daemon, task_state, now) for task, task_state in due_tasks)
+        )
+        save_state(daemon.state_file, state)
+
+
 def run_loop(config_path: str) -> None:
     config_file = Path(config_path)
     while True:
         daemon, _ = load_config(config_file)
         run_tick(config_file)
         time.sleep(daemon.heartbeat.total_seconds())
+
+
+async def run_loop_async(config_path: str) -> None:
+    config_file = Path(config_path)
+    while True:
+        daemon, _ = load_config(config_file)
+        await run_tick_async(config_file)
+        await asyncio.sleep(daemon.heartbeat.total_seconds())
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -428,7 +500,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    run_loop(args.config)
+    asyncio.run(run_loop_async(args.config))
     return 0
 
 
