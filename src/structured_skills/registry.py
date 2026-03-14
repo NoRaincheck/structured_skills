@@ -73,6 +73,72 @@ class Skill:
     skill_md_body: str
 
 
+class SkillProxy:
+    """Proxy object for calling skill functions and scripts as methods."""
+
+    def __init__(self, registry: SkillRegistry, skill_name: str, skill: Skill):
+        self._registry = registry
+        self._skill_name = skill_name
+        self._skill = skill
+        self._script_cache: dict[str, Path] = {}
+        self._function_cache: dict[str, tuple[Path, str]] = {}
+        self._discover_scripts()
+
+    def _discover_scripts(self):
+        scripts_dir = self._skill.directory / "scripts"
+        if not scripts_dir.exists():
+            return
+        for script in sorted(scripts_dir.glob("*.py")):
+            name = script.stem
+            self._script_cache[name] = script
+            for func_name in self._registry._list_functions(script):
+                self._function_cache[func_name] = (script, func_name)
+
+    def __getattr__(self, name: str):
+        if name.startswith("_"):
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+        if name in self._script_cache:
+            return self._make_script_caller(name)
+
+        if name in self._function_cache:
+            script, func_name = self._function_cache[name]
+            return self._make_function_caller(script, func_name)
+
+        raise AttributeError(f"Skill '{self._skill_name}' has no function or script named '{name}'")
+
+    def _make_script_caller(self, script_name: str):
+        def caller(*args, **kwargs):
+            script_path = self._script_cache[script_name]
+            params = self._registry._get_function_parameters(
+                script_path, self._registry._select_script_function(script_path, None)
+            )
+            if params is None:
+                raise TypeError(f"Script '{script_name}' has no callable functions")
+            param_names = list(params)
+            merged = dict(zip(param_names, args))
+            if set(merged) & set(kwargs):
+                raise TypeError(f"Got multiple values for argument(s): {set(merged) & set(kwargs)}")
+            merged.update(kwargs)
+            return self._registry.execute(self._skill_name, f"{script_name}.py", merged)
+
+        return caller
+
+    def _make_function_caller(self, script_path: Path, func_name: str):
+        def caller(*args, **kwargs):
+            params = self._registry._get_function_parameters(script_path, func_name)
+            if params is None:
+                raise TypeError(f"Function '{func_name}' has no detectable parameters")
+            param_names = list(params)
+            merged = dict(zip(param_names, args))
+            if set(merged) & set(kwargs):
+                raise TypeError(f"Got multiple values for argument(s): {set(merged) & set(kwargs)}")
+            merged.update(kwargs)
+            return self._registry.execute(self._skill_name, func_name, merged)
+
+        return caller
+
+
 class SkillRegistry:
     """Registry for discovering and executing deterministic skill resources."""
 
@@ -130,6 +196,11 @@ class SkillRegistry:
             if skill.name == skill_name:
                 return skill
         return None
+
+    def skill(self, skill_name: str) -> SkillProxy:
+        """Return a proxy for calling skill functions and scripts as methods."""
+        skill = self._require_skill(skill_name, "skill")
+        return SkillProxy(self, skill_name, skill)
 
     def _require_skill(self, skill_name: str, context: str) -> Skill:
         skill = self.get_skill_by_name(skill_name)

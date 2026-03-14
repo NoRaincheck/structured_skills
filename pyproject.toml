@@ -4,7 +4,7 @@ version = "0.3.0"
 description = "Structured Skills for Agents"
 readme = "README.md"
 authors = []
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=3.0.0",
 ]
