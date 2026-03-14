@@ -80,3 +80,64 @@ def test_inspect_resource_file_still_works() -> None:
     registry = SkillRegistry(FIXTURES)
     content = registry.inspect("math-skill", resource_name="resources/README.txt")
     assert "deterministic resource" in content
+
+
+def test_skill_proxy_returns_proxy_object() -> None:
+    registry = SkillRegistry(FIXTURES)
+    proxy = registry.skill("math-skill")
+    assert proxy is not None
+
+
+def test_skill_proxy_calls_function() -> None:
+    registry = SkillRegistry(FIXTURES)
+    proxy = registry.skill("math-skill")
+    result = proxy.add(a=2, b=3)
+    assert result == 5
+
+
+def test_skill_proxy_calls_script() -> None:
+    registry = SkillRegistry(FIXTURES)
+    proxy = registry.skill("math-skill")
+    result = proxy.math_ops(a=2, b=3)
+    assert result == 5
+
+
+def test_skill_proxy_echo_script() -> None:
+    registry = SkillRegistry(FIXTURES)
+    proxy = registry.skill("echo-skill")
+    result = proxy.echo(name="Builder")
+    assert "Hello, Builder!" in result
+
+
+def test_skill_proxy_unknown_attribute_raises() -> None:
+    registry = SkillRegistry(FIXTURES)
+    proxy = registry.skill("math-skill")
+    with pytest.raises(AttributeError, match="has no function or script"):
+        proxy.nonexistent()
+
+
+def test_skill_proxy_function_positional_args() -> None:
+    registry = SkillRegistry(FIXTURES)
+    proxy = registry.skill("math-skill")
+    result = proxy.add(2, 3)
+    assert result == 5
+
+
+def test_skill_proxy_function_mixed_args() -> None:
+    registry = SkillRegistry(FIXTURES)
+    proxy = registry.skill("math-skill")
+    result = proxy.add(2, b=3)
+    assert result == 5
+
+
+def test_skill_proxy_function_duplicate_args_raises() -> None:
+    registry = SkillRegistry(FIXTURES)
+    proxy = registry.skill("math-skill")
+    with pytest.raises(TypeError, match="multiple values"):
+        proxy.add(2, b=3, a=5)
+
+
+def test_skill_proxy_unknown_skill_raises() -> None:
+    registry = SkillRegistry(FIXTURES)
+    with pytest.raises(KeyError, match="Skill not found"):
+        registry.skill("nonexistent-skill")
