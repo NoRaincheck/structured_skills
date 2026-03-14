@@ -116,6 +116,6 @@ from pathlib import Path
 from structured_skills import SkillRegistry, SkillToolsBuilder
 
 registry = SkillRegistry(Path("tests/fixtures/skills"))
-tools = SkillToolsBuilder(registry).build_callable_tools()
-result = tools["execute"][0]("math-skill", "add", {"a": 2, "b": 3})
+result = registry.execute("math-skill", "add", {"a": 2, "b": 3})
+print(result)
 ```
