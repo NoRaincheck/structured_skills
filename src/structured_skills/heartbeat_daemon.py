@@ -46,12 +46,11 @@ import re
 import sqlite3
 import subprocess
 import time
+import tomllib
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-
-import tomllib
 
 DURATION_RE = re.compile(r"(\d+)([smhd])")
 TIME_RE = re.compile(r"^\d{2}:\d{2}(:\d{2})?$")
