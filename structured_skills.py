@@ -472,12 +472,12 @@ class SkillRegistry:
             )
         )
 
-    def _get_function_parameters(self, script_path: Path, function_name: str) -> set[str] | None:
+    def _get_function_parameters(self, script_path: Path, function_name: str) -> list[str] | None:
         try:
             info = extract_function_info(script_path.read_text(encoding="utf-8"), function_name)
         except Exception:
             return None
-        return {param.name for param in info.parameters}
+        return [param.name for param in info.parameters]
 
     def _select_script_function(self, script_path: Path, args: dict[str, Any] | None) -> str:
         candidates = [
